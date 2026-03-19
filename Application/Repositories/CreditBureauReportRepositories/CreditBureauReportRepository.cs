@@ -355,6 +355,129 @@ public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : I
         return result.Values.ToList();
     }
 
+    public async Task<List<CreditBureauReportQueueItem<CreditRegistrationFactoring>>>
+    GetCreditRegistrationFactoringRequestsAsync(CancellationToken cancellationToken)
+    {
+        return await ExecuteTableFunctionAsync("KATM_Report_014", MapCreditRegistrationFactoring, cancellationToken);
+    }
+    public async Task<List<CreditBureauReportQueueItem<CreditRegistrationBusinessDetailRequest>>>
+    GetCreditRegistrationBusinessDetailsRequestsAsync(CancellationToken cancellationToken)
+    {
+        using var connection = new SqlConnection(_databaseSettings.DBConnection);
+        using var command = new SqlCommand("SELECT * FROM [dbo].[KATM_Report_022]()", connection);
+
+        await connection.OpenAsync(cancellationToken);
+        using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
+        var result = new Dictionary<int, CreditBureauReportQueueItem<CreditRegistrationBusinessDetailRequest>>();
+
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var loanKey = GetInt(reader, "loanKey") ?? 0;
+
+            if (!result.ContainsKey(loanKey))
+            {
+                result[loanKey] = new CreditBureauReportQueueItem<CreditRegistrationBusinessDetailRequest>
+                {
+                    LoanKey = loanKey,
+                    Request = new CreditRegistrationBusinessDetailRequest
+                    {
+                        PContractId = GetString(reader, "pContractId"),   // [УникальныйIDДоговора]
+                        PContractType = GetString(reader, "pContractType"), // [КодТипаКредитования]
+                        PDate = GetString(reader, "pDate"),         // [ДатаОтправки]
+                        PRepaymentDetArray = new List<PBusinessRepaymentDetArray>()
+                    }
+                };
+            }
+
+            result[loanKey].Request.PRepaymentDetArray!.Add(new PBusinessRepaymentDetArray
+            {
+                AccountA = GetString(reader, "accountA"),    // [ДебетовыйПланСчётов] 
+                AccountB = GetString(reader, "accountB"),    // [КредитовыйПланСчётов]
+                Currency = GetString(reader, "currency"),   // [КодВалюты] UZ_s017
+                Destination = GetString(reader, "destination"),// [КодНазначенияПлатежа]
+                DocDate = GetString(reader, "docDate"),    // [ДатаПроведенияПлатежа]
+                DocNum = GetString(reader, "docNum"),     // [НомерПлатёжногоДокумента]
+                DocType = GetString(reader, "docType"),    // [КодТипаПлатёжногоДокумента] 
+                NameA = GetString(reader, "nameA"),      // [НаименованиеОтправителя]
+                NameB = GetString(reader, "nameB"),      // [НаименованиеПолучателя]
+                PayType = GetString(reader, "payType"),    // [ФормаВыдачиПогашения] 
+                PaymentId = GetString(reader, "paymentId"), // [УникальныйНомерДокумента]
+                Purpose = GetString(reader, "purpose"),   // [ЦельПлатежа]
+                Summa = GetDecimal(reader, "summa")     // [СуммаПлатежаВТийинах]
+            });
+        }
+
+        await connection.CloseAsync();
+        return result.Values.ToList();
+    }
+
+    public async Task<List<CreditBureauReportQueueItem<CreditRegistrationSubjectRequest>>>
+    GetCreditRegistrationSubjectRequestsAsync(CancellationToken cancellationToken)
+    {
+        return await ExecuteTableFunctionAsync("KATM_Report_023", MapCreditRegistrationSubjectRequest, cancellationToken);
+    }
+
+    private static CreditRegistrationSubjectRequest MapCreditRegistrationSubjectRequest(SqlDataReader reader)
+    {
+        return new CreditRegistrationSubjectRequest
+        {
+            PClaimId = GetString(reader, "pClaimId"),           // [УникальныйIDЗаявки]
+            PLoanSubject = GetString(reader, "pLoanSubject"),       // [КодТипаСубъекта] A18
+            PLoanSubjectStatus = GetString(reader, "pLoanSubjectStatus"), // [СтатусСубъекта] A19
+            POwnerId = GetString(reader, "pOwnerId"),           // [УникальныйНомерСубъекта]
+            PDate = GetString(reader, "pDate"),              // [ДатаОтправки]
+        };
+    }
+    public async Task<List<CreditReportQueueItem>>
+    GetCreditReportRequestsAsync(CancellationToken cancellationToken)
+    {
+        using var connection = new SqlConnection(_databaseSettings.DBConnection);
+        using var command = new SqlCommand("SELECT * FROM [dbo].[KATM_Report_017]()", connection);
+        await connection.OpenAsync(cancellationToken);
+        using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        var result = new List<CreditReportQueueItem>();
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            result.Add(new CreditReportQueueItem
+            {
+                LoanKey = GetInt(reader, "loanKey") ?? 0,
+                PClaimId = GetString(reader, "pClaimId"),              // [УникальныйIDЗаявки]
+                PReportId = GetString(reader, "pReportId"),             // [IDОтчёта]
+                PLoanSubject = GetString(reader, "pLoanSubject"),          // [ТипСубъекта] A18
+                PLoanSubjectType = GetString(reader, "pLoanSubjectType"),      // [ПодтипСубъекта] A18
+                PPin = GetString(reader, "pPin"),                  // [ПИНФЛ] для физлиц
+                PTin = GetString(reader, "pTin"),                  // [ИНН] для юрлиц
+                PReportFormat = GetInt(reader, "pReportFormat") ?? 0, // [ФорматОтчёта]
+                PReportReason = GetString(reader, "pReportReason"),         // [ЦельИзучения] v9.15
+                PToken = GetString(reader, "pToken"),                // [KATM-SIR] если есть
+            });
+        }
+        await connection.CloseAsync();
+        return result;
+    }
+
+    public async Task<List<CreditReportQueueItem>>
+        GetCreditReportPollRequestsAsync(CancellationToken cancellationToken)
+    {
+        using var connection = new SqlConnection(_databaseSettings.DBConnection);
+        using var command = new SqlCommand("SELECT * FROM [dbo].[KATM_Report_017_Poll]()", connection);
+        await connection.OpenAsync(cancellationToken);
+        using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        var result = new List<CreditReportQueueItem>();
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            result.Add(new CreditReportQueueItem
+            {
+                LoanKey = GetInt(reader, "loanKey") ?? 0,
+                PClaimId = GetString(reader, "pClaimId"),           // [УникальныйIDЗаявки]
+                PToken = GetString(reader, "pToken"),             // [ТокенДляОпроса] (05050)
+                PReportFormat = GetInt(reader, "pReportFormat") ?? 0, // [ФорматОтчёта]
+            });
+        }
+        await connection.CloseAsync();
+        return result;
+    }
     public async Task UpsertCiStatusAsync(
         int loanKey,
         int ciCode,
@@ -667,6 +790,28 @@ public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : I
             PDate = GetString(reader, "pDate")
         };
     }
+
+    private static CreditRegistrationFactoring MapCreditRegistrationFactoring(SqlDataReader reader)
+    {
+        return new CreditRegistrationFactoring
+        {
+            PClaimId = GetString(reader, "pClaimId"),         // [УникальныйIDЗаявки]
+            PContractId = GetString(reader, "pContractId"),      // [УникальныйIDДоговора]
+            PInn = GetString(reader, "pInn"),             // [ИННКлиента] (O, обязателен для юр.лиц)
+            PNibbd = GetString(reader, "pNibbd"),           // [НИББДКлиента]
+            PCreditAmount = GetDecimal(reader, "pCreditAmount") ?? 0m, // [СуммаКредитаВТийинах]
+            PCurrency = GetString(reader, "pCurrency"),        // [КодВалюты] UZ_s017
+            PBankElement = GetString(reader, "pBankElement"),     // [КодОрганаБанка] 0A5 (O)
+            PFactoringNumber = GetString(reader, "pFactoringNumber"), // [НомерРешенияОВыдаче] (O)
+            PSummaLiability = GetString(reader, "pSummaLiability"), // [СуммаОбязательстваДолжника] (O)
+            PSummaDiscount = GetString(reader, "pSummaDiscount"),  // [СуммаДисконта] (O)
+            PInnDebtor = GetString(reader, "pInnDebtor"),      // [ИННДолжника] (O)
+            PDate = GetString(reader, "pDate"),           // [ДатаОтправки]
+            PStartDate = GetString(reader, "pStartDate"),      // [ДатаНачалаДоговора]
+            PEndDate = GetString(reader, "pEndDate"),        // [ДатаОкончанияДоговора]
+        };
+    }
+
     private static bool HasColumn(IDataRecord reader, string columnName)
     {
         for (var i = 0; i < reader.FieldCount; i++)

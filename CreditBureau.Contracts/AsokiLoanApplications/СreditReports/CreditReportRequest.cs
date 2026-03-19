@@ -18,6 +18,16 @@ namespace CreditBureau.Contracts.AsokiLoanApplications.СreditReports
         public string? PLoanSubject { get; set; }
         [JsonProperty(PropertyName = "pLoanSubjectType")]
         public string? PLoanSubjectType { get; set; }
+        [JsonProperty(PropertyName = "pToken")]
+        public string? PToken { get; set; }  // KATM-SIR или токен для polling
+
+        /// <summary>
+        /// Цель изучения кредитного отчёта (обязателен с версии 9.15):
+        /// 1=мониторинг, 2=скоринг, 3=антифрод, 4=коллекшн
+        /// </summary>
+        [JsonProperty(PropertyName = "pReportReason")]
+        public string? PReportReason { get; set; }
+
         [JsonProperty(PropertyName = "pPin")]
         public string? PPin { get; set; }
         [JsonProperty(PropertyName = "pTin")]

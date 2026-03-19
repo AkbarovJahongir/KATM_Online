@@ -99,6 +99,42 @@ public interface ICreditBureauReportRepository
     /// </summary>
     public Task<List<CreditBureauReportQueueItem<CreditRegistrationLeasingRepayment>>>
         GetLeasingRepaymentObjectsAsync(CancellationToken cancellationToken);
+    /// <summary>
+    /// Получить все записи о договорах факторинга (CI-014),
+    /// для которых ci001 = 1 или ci002 = 1, и ci014 ещё не отправлен.
+    /// </summary>
+    public Task<List<CreditBureauReportQueueItem<CreditRegistrationFactoring>>>
+        GetCreditRegistrationFactoringRequestsAsync(CancellationToken cancellationToken);
+    /// <summary>
+    /// Получить все записи о бухгалтерских проводках для хозяйствующих субъектов (CI-022),
+    /// для которых ci005 = 1 и ci022 ещё не отправлен.
+    /// Источник: Trans (проводки за текущую банковскую дату, только юр.лица).
+    /// C# группирует строки по loanKey и формирует pRepaymentDetArray.
+    /// </summary>
+    public Task<List<CreditBureauReportQueueItem<CreditRegistrationBusinessDetailRequest>>>
+        GetCreditRegistrationBusinessDetailsRequestsAsync(CancellationToken cancellationToken);
+    /// <summary>
+    /// Получить все записи о связанных субъектах (CI-023):
+    /// залогодателях (Loan_collateral) и поручителях (Loan_guarantor),
+    /// для которых ci001 = 1 или ci002 = 1, и ci023 ещё не отправлен.
+    /// Одна строка = один субъект (без группировки в C#).
+    /// </summary>
+    public Task<List<CreditBureauReportQueueItem<CreditRegistrationSubjectRequest>>>
+        GetCreditRegistrationSubjectRequestsAsync(CancellationToken cancellationToken);
+    /// <summary>
+    /// Получить займы для запроса кредитного отчёта (CI-017),
+    /// для которых ci001 = 1 или ci002 = 1, и ci017 ещё не отправлен (token отсутствует).
+    /// </summary>
+    public Task<List<CreditReportQueueItem>>
+        GetCreditReportRequestsAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Получить займы, ожидающие результата кредитного отчёта (CI-017 polling):
+    /// ci017 = 0 и ci017Token уже получен (ответ 05050 был).
+    /// </summary>
+    public Task<List<CreditReportQueueItem>>
+        GetCreditReportPollRequestsAsync(CancellationToken cancellationToken);
+
 
     public Task UpsertCiStatusAsync(
         int loanKey,

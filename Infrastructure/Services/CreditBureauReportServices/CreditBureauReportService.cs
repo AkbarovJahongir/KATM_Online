@@ -6,6 +6,7 @@ using CreditBureau.Contracts.AsokiLoanApplications;
 using CreditBureau.Contracts.AsokiLoanApplications.CreditRegistration.CreditAgreementsAndLeasing.Requests;
 using CreditBureau.Contracts.AsokiLoanApplications.CreditRegistration.CreditAgreementsAndLeasing.Responses;
 using CreditBureau.Contracts.AsokiLoanApplications.CreditRegistration.CreditApplications;
+using CreditBureau.Contracts.AsokiLoanApplications.СreditReports;
 using CreditBureau.Contracts.Common;
 using Domain.Common.Constants;
 using Domain.Common.Settings;
@@ -73,7 +74,11 @@ public class CreditBureauReportService(ICreditBureauReportRepository creditBurea
         var ci013Processed = 0;
         var ci013Success = 0;
         var ci013Error = 0;
-        
+
+        var ci014Processed = 0;
+        var ci014Success = 0;
+        var ci014Error = 0;
+
         var ci015Processed = 0;
         var ci015Success = 0;
         var ci015Error = 0;
@@ -93,6 +98,19 @@ public class CreditBureauReportService(ICreditBureauReportRepository creditBurea
         var ci021Processed = 0;
         var ci021Success = 0;
         var ci021Error = 0;
+
+        var ci022Processed = 0;
+        var ci022Success = 0;
+        var ci022Error = 0;
+
+        var ci023Processed = 0;
+        var ci023Success = 0;
+        var ci023Error = 0;
+
+        var ci017Processed = 0;
+        var ci017Success = 0;
+        var ci017Error = 0;
+        var ci017Pending = 0;
 
         // 1. Отправка заявки физ.лица в кредитное бюро запрос (001)
         var creditBureauReportQueueItems = await _creditBureauReportRepository.GetCreditRegistrationIndividualRequestsAsync(cancellationToken);
@@ -732,7 +750,89 @@ public class CreditBureauReportService(ICreditBureauReportRepository creditBurea
         _logger.LogInformation(
             "CI-013 completed. Processed={Processed}, Success={Success}, Error={Error}",
             ci013Processed, ci013Success, ci013Error);
-        
+
+        // ── CI-014: Сведения о договорах факторинга ───────────────────────────────
+        var factoringRequests = await _creditBureauReportRepository.GetCreditRegistrationFactoringRequestsAsync(cancellationToken);
+        _logger.LogInformation("CI-014 queue loaded. Count={Count}", factoringRequests.Count);
+        foreach (var factoringItem in factoringRequests)
+        {
+            ci014Processed++;
+            var request = factoringItem.Request;
+
+            if (request is null)
+            {
+                ci014Error++;
+                _logger.LogWarning("CI-014 skipped due to null request. LoanKey={LoanKey}", factoringItem.LoanKey);
+                await _creditBureauReportRepository.UpsertCiStatusAsync(
+                    factoringItem.LoanKey, 14, 2, "CI-014 request is null", null, cancellationToken);
+                continue;
+            }
+
+            request.PHead = _asokiReportApiOptions.PHead;
+            request.PCode = _asokiReportApiOptions.PCode;
+            request.PDate = string.IsNullOrWhiteSpace(request.PDate)
+                ? FormatKatmDate(DateTimeOffset.Now)
+                : request.PDate.Trim();
+            request.PStartDate = string.IsNullOrWhiteSpace(request.PStartDate)
+                ? FormatKatmDate(DateTimeOffset.Now)
+                : request.PStartDate.Trim();
+            request.PEndDate = string.IsNullOrWhiteSpace(request.PEndDate)
+                ? FormatKatmDate(DateTimeOffset.Now)
+                : request.PEndDate.Trim();
+
+            var baseRequest = new BaseRequest<CreditRegistrationFactoring>
+            {
+                Data = request,
+                Security = _requestSecurity
+            };
+
+            var response = await _requestManagerService.SendPostRequest(
+                _asokiApplicationApiOptions.HostAddress + _asokiApplicationApiOptions.CreditFactoringUrl,
+                baseRequest.ToJSON(),
+                factoringItem.LoanKey,
+                cancellationToken);
+
+            if (string.IsNullOrWhiteSpace(response))
+            {
+                ci014Error++;
+                _logger.LogError("CI-014 empty response. LoanKey={LoanKey}", factoringItem.LoanKey);
+                await _creditBureauReportRepository.UpsertCiStatusAsync(
+                    factoringItem.LoanKey, 14, 2, "CI-014 returned empty response", null, cancellationToken);
+                continue;
+            }
+
+            var wrappedResponse = JsonConvert.DeserializeObject<BaseResponse<CreditRegistrationResponse>>(response);
+            var baseResponse = wrappedResponse?.data ?? JsonConvert.DeserializeObject<CreditRegistrationResponse>(response);
+            var isSuccess = baseResponse?.result is CreditBureauResultCodes.SUCCESS_00000
+                                                  or CreditBureauResultCodes.SUCCESS_05000;
+            var message = baseResponse?.resultMessage ?? wrappedResponse?.errorMessage
+                           ?? (isSuccess ? "Success" : "Unknown error");
+            var ciStatus = (byte)(isSuccess ? 1 : 2);
+
+            if (isSuccess)
+            {
+                ci014Success++;
+                _logger.LogInformation("LoanKey:{LoanKey} CI-014 success.", factoringItem.LoanKey);
+                _logWriter.Log("CreditRegistrationFactoring.txt",
+                    $"LoanKey:{factoringItem.LoanKey} CI-014 success.");
+            }
+            else
+            {
+                ci014Error++;
+                _logger.LogError("LoanKey:{LoanKey} CI-014 error. Response:{Response}",
+                    factoringItem.LoanKey, response);
+                _logWriter.Log("CreditRegistrationFactoring.txt",
+                    $"LoanKey:{factoringItem.LoanKey} CI-014 error. Response:{response}");
+            }
+
+            await _creditBureauReportRepository.UpsertCiStatusAsync(
+                factoringItem.LoanKey, 14, ciStatus, message, null, cancellationToken);
+        }
+        _logger.LogInformation(
+            "CI-014 completed. Processed={Processed}, Success={Success}, Error={Error}",
+            ci014Processed, ci014Success, ci014Error);
+
+
         // 10. Сведения об остатках на счетах (CI-015)
         // Условие: ci004 = 1 (договор успешно зарегистрирован)
         var repaymentRequests = await _creditBureauReportRepository.GetCreditRegistrationRepaymentRequestsAsync(cancellationToken);
@@ -880,7 +980,156 @@ public class CreditBureauReportService(ICreditBureauReportRepository creditBurea
             ci016Processed,
             ci016Success,
             ci016Error);
-        
+
+        // ── CI-022: Сведения о бухгалтерских проводках для хозяйствующих субъектов ──
+        var businessDetailsRequests = await _creditBureauReportRepository.GetCreditRegistrationBusinessDetailsRequestsAsync(cancellationToken);
+        _logger.LogInformation("CI-022 queue loaded. Count={Count}", businessDetailsRequests.Count);
+        foreach (var businessItem in businessDetailsRequests)
+        {
+            ci022Processed++;
+            var request = businessItem.Request;
+
+            if (request is null)
+            {
+                ci022Error++;
+                _logger.LogWarning("CI-022 skipped due to null request. LoanKey={LoanKey}", businessItem.LoanKey);
+                await _creditBureauReportRepository.UpsertCiStatusAsync(
+                    businessItem.LoanKey, 22, 2, "CI-022 request is null", null, cancellationToken);
+                continue;
+            }
+
+            request.PHead = _asokiReportApiOptions.PHead;
+            request.PCode = _asokiReportApiOptions.PCode;
+            request.PDate = string.IsNullOrWhiteSpace(request.PDate)
+                ? FormatKatmDate(DateTimeOffset.Now)
+                : request.PDate.Trim();
+
+            var baseRequest = new BaseRequest<CreditRegistrationBusinessDetailRequest>
+            {
+                Data = request,
+                Security = _requestSecurity
+            };
+
+            var response = await _requestManagerService.SendPostRequest(
+                _asokiApplicationApiOptions.HostAddress + _asokiApplicationApiOptions.CreditRegistrationBusinessDetailsUrl,
+                baseRequest.ToJSON(),
+                businessItem.LoanKey,
+                cancellationToken);
+
+            if (string.IsNullOrWhiteSpace(response))
+            {
+                ci022Error++;
+                _logger.LogError("CI-022 empty response. LoanKey={LoanKey}", businessItem.LoanKey);
+                await _creditBureauReportRepository.UpsertCiStatusAsync(
+                    businessItem.LoanKey, 22, 2, "CI-022 returned empty response", null, cancellationToken);
+                continue;
+            }
+
+            var wrappedResponse = JsonConvert.DeserializeObject<BaseResponse<CreditRegistrationResponse>>(response);
+            var baseResponse = wrappedResponse?.data ?? JsonConvert.DeserializeObject<CreditRegistrationResponse>(response);
+            var isSuccess = baseResponse?.result is CreditBureauResultCodes.SUCCESS_00000
+                                                  or CreditBureauResultCodes.SUCCESS_05000;
+            var message = baseResponse?.resultMessage ?? wrappedResponse?.errorMessage
+                           ?? (isSuccess ? "Success" : "Unknown error");
+            var ciStatus = (byte)(isSuccess ? 1 : 2);
+
+            if (isSuccess)
+            {
+                ci022Success++;
+                _logger.LogInformation("LoanKey:{LoanKey} CI-022 success.", businessItem.LoanKey);
+                _logWriter.Log("CreditRegistrationBusinessDetails.txt",
+                    $"LoanKey:{businessItem.LoanKey} CI-022 success.");
+            }
+            else
+            {
+                ci022Error++;
+                _logger.LogError("LoanKey:{LoanKey} CI-022 error. Response:{Response}",
+                    businessItem.LoanKey, response);
+                _logWriter.Log("CreditRegistrationBusinessDetails.txt",
+                    $"LoanKey:{businessItem.LoanKey} CI-022 error. Response:{response}");
+            }
+
+            await _creditBureauReportRepository.UpsertCiStatusAsync(
+                businessItem.LoanKey, 22, ciStatus, message, null, cancellationToken);
+        }
+        _logger.LogInformation(
+            "CI-022 completed. Processed={Processed}, Success={Success}, Error={Error}",
+            ci022Processed, ci022Success, ci022Error);
+        // ── CI-023: Сведения о связанных субъектах (залогодатель / поручитель) ────────
+        var subjectRequests = await _creditBureauReportRepository.GetCreditRegistrationSubjectRequestsAsync(cancellationToken);
+        _logger.LogInformation("CI-023 queue loaded. Count={Count}", subjectRequests.Count);
+        foreach (var subjectItem in subjectRequests)
+        {
+            ci023Processed++;
+            var request = subjectItem.Request;
+
+            if (request is null)
+            {
+                ci023Error++;
+                _logger.LogWarning("CI-023 skipped due to null request. LoanKey={LoanKey}", subjectItem.LoanKey);
+                await _creditBureauReportRepository.UpsertCiStatusAsync(
+                    subjectItem.LoanKey, 23, 2, "CI-023 request is null", null, cancellationToken);
+                continue;
+            }
+
+            request.PHead = _asokiReportApiOptions.PHead;
+            request.PCode = _asokiReportApiOptions.PCode;
+            request.PDate = string.IsNullOrWhiteSpace(request.PDate)
+                ? FormatKatmDate(DateTimeOffset.Now)
+                : request.PDate.Trim();
+
+            var baseRequest = new BaseRequest<CreditRegistrationSubjectRequest>
+            {
+                Data = request,
+                Security = _requestSecurity
+            };
+
+            var response = await _requestManagerService.SendPostRequest(
+                _asokiApplicationApiOptions.HostAddress + _asokiApplicationApiOptions.CreditRegistrationSubjectUrl,
+                baseRequest.ToJSON(),
+                subjectItem.LoanKey,
+                cancellationToken);
+
+            if (string.IsNullOrWhiteSpace(response))
+            {
+                ci023Error++;
+                _logger.LogError("CI-023 empty response. LoanKey={LoanKey}", subjectItem.LoanKey);
+                await _creditBureauReportRepository.UpsertCiStatusAsync(
+                    subjectItem.LoanKey, 23, 2, "CI-023 returned empty response", null, cancellationToken);
+                continue;
+            }
+
+            var wrappedResponse = JsonConvert.DeserializeObject<BaseResponse<CreditRegistrationResponse>>(response);
+            var baseResponse = wrappedResponse?.data ?? JsonConvert.DeserializeObject<CreditRegistrationResponse>(response);
+            var isSuccess = baseResponse?.result is CreditBureauResultCodes.SUCCESS_00000
+                                                  or CreditBureauResultCodes.SUCCESS_05000;
+            var message = baseResponse?.resultMessage ?? wrappedResponse?.errorMessage
+                           ?? (isSuccess ? "Success" : "Unknown error");
+            var ciStatus = (byte)(isSuccess ? 1 : 2);
+
+            if (isSuccess)
+            {
+                ci023Success++;
+                _logger.LogInformation("LoanKey:{LoanKey} CI-023 success. PLoanSubject={PLoanSubject}",
+                    subjectItem.LoanKey, request.PLoanSubject);
+                _logWriter.Log("CreditRegistrationSubject.txt",
+                    $"LoanKey:{subjectItem.LoanKey} CI-023 success. PLoanSubject:{request.PLoanSubject}");
+            }
+            else
+            {
+                ci023Error++;
+                _logger.LogError("LoanKey:{LoanKey} CI-023 error. Response:{Response}",
+                    subjectItem.LoanKey, response);
+                _logWriter.Log("CreditRegistrationSubject.txt",
+                    $"LoanKey:{subjectItem.LoanKey} CI-023 error. Response:{response}");
+            }
+
+            await _creditBureauReportRepository.UpsertCiStatusAsync(
+                subjectItem.LoanKey, 23, ciStatus, message, null, cancellationToken);
+        }
+        _logger.LogInformation(
+            "CI-023 completed. Processed={Processed}, Success={Success}, Error={Error}",
+            ci023Processed, ci023Success, ci023Error);
         // 14. Сведения о статусе счетов (CI-018) 
         var accountStatusRequests = await _creditBureauReportRepository.GetAccountStatusRequestsAsync(cancellationToken);
         _logger.LogInformation("CI-018 queue loaded. Count={Count}", accountStatusRequests.Count);
@@ -1112,7 +1361,155 @@ public class CreditBureauReportService(ICreditBureauReportRepository creditBurea
         _logger.LogInformation(
             "CI-021 completed. Processed={Processed}, Success={Success}, Error={Error}",
             ci021Processed, ci021Success, ci021Error);
-        
+        // ── CI-017: Запросы на получение кредитной информации ─────────────────────
+        var creditReportRequests = await _creditBureauReportRepository.GetCreditReportRequestsAsync(cancellationToken);
+        _logger.LogInformation("CI-017 queue loaded. Count={Count}", creditReportRequests.Count);
+        foreach (var reportItem in creditReportRequests)
+        {
+            ci017Processed++;
+
+            var request = new CreditReportRequest
+            {
+                PHead = _asokiReportApiOptions.PHead,      // Головной код организации
+                PCode = _asokiReportApiOptions.PCode,      // Код организации
+                PClaimId = reportItem.PClaimId,               // Уникальный ID заявки
+                PReportId = reportItem.PReportId,              // ID отчёта
+                PLoanSubject = reportItem.PLoanSubject,           // Тип субъекта A18
+                PLoanSubjectType = reportItem.PLoanSubjectType,       // Подтип субъекта A18
+                PPin = reportItem.PPin,                   // ПИНФЛ (физлица)
+                PTin = reportItem.PTin,                   // ИНН (юрлица)
+                PReportFormat = reportItem.PReportFormat,          // Формат отчёта
+                PReportReason = reportItem.PReportReason,          // Цель изучения (v9.15, M)
+                PToken = string.IsNullOrWhiteSpace(reportItem.PToken) // KATM-SIR если есть
+                    ? null : reportItem.PToken,
+            };
+
+            var baseRequest = new BaseRequest<CreditReportRequest>
+            {
+                Data = request,
+                Security = _requestSecurity
+            };
+
+            var response = await _requestManagerService.SendPostRequest(
+                _asokiReportApiOptions.HostAddress + _asokiReportApiOptions.ReportUrl,
+                baseRequest.ToJSON(),
+                reportItem.LoanKey,
+                cancellationToken);
+
+            if (string.IsNullOrWhiteSpace(response))
+            {
+                ci017Error++;
+                _logger.LogError("CI-017 empty response. LoanKey={LoanKey}", reportItem.LoanKey);
+                await _creditBureauReportRepository.UpsertCiStatusAsync(
+                    reportItem.LoanKey, 17, 2, "CI-017 returned empty response", null, cancellationToken);
+                continue;
+            }
+
+            var baseResponse = JsonConvert.DeserializeObject<BaseResponse<CreditReportResponse>>(response);
+            var resultCode = baseResponse?.data?.result;
+            var resultMsg = baseResponse?.data?.resultMessage ?? string.Empty;
+
+            if (resultCode == CreditBureauResultCodes.SUCCESS_05000)
+            {
+                // Отчёт получен сразу → сохраняем base64 в логах, ci017=1
+                ci017Success++;
+                _logger.LogInformation("LoanKey:{LoanKey} CI-017 success (immediate).", reportItem.LoanKey);
+                _logWriter.Log("CreditReport017.txt",
+                    $"LoanKey:{reportItem.LoanKey} CI-017 success. Base64 length:{baseResponse?.data?.reportBase64?.Length}");
+                await _creditBureauReportRepository.UpsertCiStatusAsync(
+                    reportItem.LoanKey, 17, 1, resultMsg, null, cancellationToken);
+            }
+            else if (resultCode == CreditBureauResultCodes.WAIT_AND_TRY_AGAIN)
+            {
+                // Отчёт формируется (05050) → сохраняем token, ci017=0, polling подберёт
+                ci017Pending++;
+                var pollingToken = baseResponse?.data?.token;
+                _logger.LogInformation("LoanKey:{LoanKey} CI-017 pending (05050). Token:{Token}",
+                    reportItem.LoanKey, pollingToken);
+                _logWriter.Log("CreditReport017.txt",
+                    $"LoanKey:{reportItem.LoanKey} CI-017 pending. Token:{pollingToken}");
+                await _creditBureauReportRepository.UpsertCiStatusAsync(
+                    reportItem.LoanKey, 17, 0, "Ожидание ответа 05050", pollingToken, cancellationToken);
+            }
+            else
+            {
+                ci017Error++;
+                _logger.LogError("LoanKey:{LoanKey} CI-017 error. Code:{Code} Response:{Response}",
+                    reportItem.LoanKey, resultCode, response);
+                _logWriter.Log("CreditReport017.txt",
+                    $"LoanKey:{reportItem.LoanKey} CI-017 error. Response:{response}");
+                await _creditBureauReportRepository.UpsertCiStatusAsync(
+                    reportItem.LoanKey, 17, 2, resultMsg, null, cancellationToken);
+            }
+        }
+
+        _logger.LogInformation(
+            "CI-017 completed. Processed={Processed}, Success={Success}, Pending={Pending}, Error={Error}",
+            ci017Processed, ci017Success, ci017Pending, ci017Error);
+
+        // ── CI-017 Polling: опрос статуса для займов с 05050 ──────────────────────
+        var pollRequests = await _creditBureauReportRepository.GetCreditReportPollRequestsAsync(cancellationToken);
+        _logger.LogInformation("CI-017 Poll queue loaded. Count={Count}", pollRequests.Count);
+        foreach (var pollItem in pollRequests)
+        {
+            var statusRequest = new CreditReportStatusRequest
+            {
+                pHead = _asokiReportApiOptions.PHead,  // Головной код организации
+                pCode = _asokiReportApiOptions.PCode,  // Код организации
+                pClaimId = pollItem.PClaimId,             // Уникальный ID заявки
+                pToken = pollItem.PToken!,              // Токен от 05050
+                pReportFormat = pollItem.PReportFormat,        // Формат отчёта
+            };
+
+            var baseStatusRequest = new BaseRequest<CreditReportStatusRequest>
+            {
+                Data = statusRequest,
+                Security = _requestSecurity
+            };
+
+            var response = await _requestManagerService.SendPostRequest(
+                _asokiReportApiOptions.HostAddress + _asokiReportApiOptions.ReportStatusUrl,
+                baseStatusRequest.ToJSON(),
+                pollItem.LoanKey,
+                cancellationToken);
+
+            if (string.IsNullOrWhiteSpace(response))
+            {
+                _logger.LogWarning("CI-017 Poll empty response. LoanKey={LoanKey}", pollItem.LoanKey);
+                continue; // не меняем статус — попробуем в следующем цикле
+            }
+
+            var baseResponse = JsonConvert.DeserializeObject<BaseResponse<CreditReportStatusResponse>>(response);
+            var resultCode = baseResponse?.data?.result;
+            var resultMsg = baseResponse?.data?.resultMessage ?? string.Empty;
+
+            if (resultCode == CreditBureauResultCodes.SUCCESS_05000)
+            {
+                _logger.LogInformation("LoanKey:{LoanKey} CI-017 Poll success.", pollItem.LoanKey);
+                _logWriter.Log("CreditReport017.txt",
+                    $"LoanKey:{pollItem.LoanKey} CI-017 Poll success. Base64 length:{baseResponse?.data?.reportBase64?.Length}");
+                await _creditBureauReportRepository.UpsertCiStatusAsync(
+                    pollItem.LoanKey, 17, 1, resultMsg, null, cancellationToken);
+            }
+            else if (resultCode == CreditBureauResultCodes.WAIT_AND_TRY_AGAIN)
+            {
+                // Ещё ждём — оставляем ci017=0, token остаётся
+                _logger.LogInformation("LoanKey:{LoanKey} CI-017 Poll still waiting.", pollItem.LoanKey);
+            }
+            else
+            {
+                _logger.LogError("LoanKey:{LoanKey} CI-017 Poll error. Code:{Code}",
+                    pollItem.LoanKey, resultCode);
+                _logWriter.Log("CreditReport017.txt",
+                    $"LoanKey:{pollItem.LoanKey} CI-017 Poll error. Response:{response}");
+                await _creditBureauReportRepository.UpsertCiStatusAsync(
+                    pollItem.LoanKey, 17, 2, resultMsg, null, cancellationToken);
+            }
+        }
+        _logger.LogInformation("CI-017 Poll completed. Count={Count}", pollRequests.Count);
+
+
+
         processingStopwatch.Stop();
         _logger.LogInformation(
             "CreditBureauReportProcessing finished. ElapsedMs={ElapsedMs}",
