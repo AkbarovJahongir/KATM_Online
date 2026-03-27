@@ -9,6 +9,11 @@
         public string PCode { get; set; } = null!;
         public string PLogin { get; set; } = null!;
         public string PPassword { get; set; } = null!;
+        public string IPTest { get; set; }
+        public string DomainTest { get; set; }
+        public string IP { get; set; }
+        public string Domain { get; set; }
+        public bool IsProduction { get; set; }
         public int CheckReportStatusInterval { get; set; }
         public int ReportTimeToLiveInterval { get; set; }
     }

@@ -1,5 +1,4 @@
 ﻿using Newtonsoft.Json;
-using System.Globalization;
 
 namespace CreditBureau.Contracts.AsokiLoanApplications.CreditRegistration.CreditApplications
 {

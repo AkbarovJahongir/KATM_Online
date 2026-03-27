@@ -331,7 +331,7 @@ public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : I
                         PClientId = GetString(reader, "pClientId"),
                         PInn = GetString(reader, "pInn"),
                         PNibbd = GetString(reader, "pNibbd"),
-                        PDate = GetString(reader, "pDate"), 
+                        PDate = GetString(reader, "pDate"),
                         PDetailsArray = new List<PDetailsArray>()
                     }
                 };
@@ -650,43 +650,43 @@ public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : I
         };
     }
 
-/*
-    private static List<CreditRegistrationRepaymentSchedule>
-        MapCreditRegistrationRepaymentSchedule(SqlDataReader reader)
-    {
-        var result = new Dictionary<string, CreditRegistrationRepaymentSchedule>();
-
-        while (reader.Read())
+    /*
+        private static List<CreditRegistrationRepaymentSchedule>
+            MapCreditRegistrationRepaymentSchedule(SqlDataReader reader)
         {
-            var loanKey = GetString(reader, "loanKey", "loanKey");
+            var result = new Dictionary<string, CreditRegistrationRepaymentSchedule>();
 
-            if (!result.ContainsKey(loanKey))
+            while (reader.Read())
             {
-                result[loanKey] = new CreditRegistrationRepaymentSchedule
+                var loanKey = GetString(reader, "loanKey", "loanKey");
+
+                if (!result.ContainsKey(loanKey))
                 {
-                    PHead = GetString(reader, "pHead", "head"),
-                    PCode = GetString(reader, "pCode", "code"),
-                    PClaimId = GetString(reader, "pClaimId", "pClaimId"),
-                    PContractId = GetString(reader, "pContractId", "pContractId"),
-                    PNibbd = GetString(reader, "PNibbd", "PNibbd"),
-                    PDate = GetString(reader, "pDate", "pDate"),
-                    PIsUpdate = GetString(reader, "PIsUpdate", "pIsUpdate"),
-                    PPlanArray = new List<PPlanArray>()
-                };
+                    result[loanKey] = new CreditRegistrationRepaymentSchedule
+                    {
+                        PHead = GetString(reader, "pHead", "head"),
+                        PCode = GetString(reader, "pCode", "code"),
+                        PClaimId = GetString(reader, "pClaimId", "pClaimId"),
+                        PContractId = GetString(reader, "pContractId", "pContractId"),
+                        PNibbd = GetString(reader, "PNibbd", "PNibbd"),
+                        PDate = GetString(reader, "pDate", "pDate"),
+                        PIsUpdate = GetString(reader, "PIsUpdate", "pIsUpdate"),
+                        PPlanArray = new List<PPlanArray>()
+                    };
+                }
+
+                result[loanKey].PPlanArray.Add(new PPlanArray
+                {
+                    Amount = GetString(reader, "Amount", "principalAmount"),
+                    Currency = GetString(reader, "Currency", "currency"),
+                    Date = GetString(reader, "Date", "scheduleDate"),
+                    Percent = GetString(reader, "Percent", "percentAmount")
+                });
             }
 
-            result[loanKey].PPlanArray.Add(new PPlanArray
-            {
-                Amount = GetString(reader, "Amount", "principalAmount"),
-                Currency = GetString(reader, "Currency", "currency"),
-                Date = GetString(reader, "Date", "scheduleDate"),
-                Percent = GetString(reader, "Percent", "percentAmount")
-            });
+            return result.Values.ToList();
         }
-
-        return result.Values.ToList();
-    }
-    */
+        */
     private static CreditRegistrationPledgeOwner MapCreditRegistrationPledgeOwnerRequest(SqlDataReader reader)
     {
         return new CreditRegistrationPledgeOwner

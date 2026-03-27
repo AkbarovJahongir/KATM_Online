@@ -1,3 +1,49 @@
 Log Entry: [18.03.2026 16:33:45] 
 Start successful!
 ----------------------------------------------
+Log Entry: [24.03.2026 9:44:34] 
+Start successful!
+----------------------------------------------
+Log Entry: [24.03.2026 9:45:28] 
+Catch AsokiProcessing message error: A task was canceled.
+   at CreditBureau.AsokiXml.ExecuteAsync(CancellationToken stoppingToken) in C:\Users\jahongir.a\source\repos\KATM_Online\CreditBureau\AsokiWorkerXml.cs:line 21
+----------------------------------------------
+Log Entry: [24.03.2026 12:27:42] 
+Start successful!
+----------------------------------------------
+Log Entry: [24.03.2026 12:27:50] 
+Catch AsokiProcessing message error: A task was canceled.
+   at CreditBureau.AsokiXml.ExecuteAsync(CancellationToken stoppingToken) in C:\Users\jahongir.a\source\repos\KATM_Online\CreditBureau\AsokiWorkerXml.cs:line 21
+----------------------------------------------
+Log Entry: [26.03.2026 14:21:10] 
+Start successful!
+----------------------------------------------
+Log Entry: [26.03.2026 14:21:25] 
+Catch AsokiProcessing message error: A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: SQL Network Interfaces, error: 26 - Error Locating Server/Instance Specified)
+   at System.Data.SqlClient.SqlInternalConnectionTds..ctor(DbConnectionPoolIdentity identity, SqlConnectionString connectionOptions, SqlCredential credential, Object providerInfo, String newPassword, SecureString newSecurePassword, Boolean redirectedUserInstance, SqlConnectionString userConnectionOptions, SessionData reconnectSessionData, Boolean applyTransientFaultHandling, String accessToken)
+   at System.Data.SqlClient.SqlConnectionFactory.CreateConnection(DbConnectionOptions options, DbConnectionPoolKey poolKey, Object poolGroupProviderInfo, DbConnectionPool pool, DbConnection owningConnection, DbConnectionOptions userOptions)
+   at System.Data.ProviderBase.DbConnectionFactory.CreatePooledConnection(DbConnectionPool pool, DbConnection owningObject, DbConnectionOptions options, DbConnectionPoolKey poolKey, DbConnectionOptions userOptions)
+   at System.Data.ProviderBase.DbConnectionPool.CreateObject(DbConnection owningObject, DbConnectionOptions userOptions, DbConnectionInternal oldConnection)
+   at System.Data.ProviderBase.DbConnectionPool.UserCreateRequest(DbConnection owningObject, DbConnectionOptions userOptions, DbConnectionInternal oldConnection)
+   at System.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionPool.WaitForPendingOpen()
+--- End of stack trace from previous location ---
+   at Application.Repositories.AsokiRepositories.AsokiRepository.GetLoanApplicationsXml(CancellationToken cancellationToken) in C:\Users\jahongir.a\source\repos\KATM_Online\Application\Repositories\AsokiRepositories\AsokiRepository.cs:line 52
+   at Infrastructure.Services.AsokiXmlServices.AsokiXmlService.AsokiProcessingXml(CancellationToken cancellationToken) in C:\Users\jahongir.a\source\repos\KATM_Online\Infrastructure\Services\AsokiXmlServices\AsokiXmlService.cs:line 15
+   at CreditBureau.AsokiXml.ExecuteAsync(CancellationToken stoppingToken) in C:\Users\jahongir.a\source\repos\KATM_Online\CreditBureau\AsokiWorkerXml.cs:line 20
+----------------------------------------------
+Log Entry: [26.03.2026 14:21:35] 
+Catch AsokiProcessing message error: A task was canceled.
+   at Application.Repositories.AsokiRepositories.AsokiRepository.GetLoanApplicationsXml(CancellationToken cancellationToken) in C:\Users\jahongir.a\source\repos\KATM_Online\Application\Repositories\AsokiRepositories\AsokiRepository.cs:line 52
+   at Infrastructure.Services.AsokiXmlServices.AsokiXmlService.AsokiProcessingXml(CancellationToken cancellationToken) in C:\Users\jahongir.a\source\repos\KATM_Online\Infrastructure\Services\AsokiXmlServices\AsokiXmlService.cs:line 15
+   at CreditBureau.AsokiXml.ExecuteAsync(CancellationToken stoppingToken) in C:\Users\jahongir.a\source\repos\KATM_Online\CreditBureau\AsokiWorkerXml.cs:line 20
+----------------------------------------------
+Log Entry: [26.03.2026 14:21:42] 
+Start successful!
+----------------------------------------------
+Log Entry: [26.03.2026 14:21:43] 
+Catch AsokiProcessing message error: A task was canceled.
+   at Application.Repositories.AsokiRepositories.AsokiRepository.GetLoanApplicationsXml(CancellationToken cancellationToken) in C:\Users\jahongir.a\source\repos\KATM_Online\Application\Repositories\AsokiRepositories\AsokiRepository.cs:line 52
+   at Infrastructure.Services.AsokiXmlServices.AsokiXmlService.AsokiProcessingXml(CancellationToken cancellationToken) in C:\Users\jahongir.a\source\repos\KATM_Online\Infrastructure\Services\AsokiXmlServices\AsokiXmlService.cs:line 15
+   at CreditBureau.AsokiXml.ExecuteAsync(CancellationToken stoppingToken) in C:\Users\jahongir.a\source\repos\KATM_Online\CreditBureau\AsokiWorkerXml.cs:line 20
+----------------------------------------------

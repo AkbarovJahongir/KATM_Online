@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Serialization;
 
 namespace CreditBureau.Contracts.CreditReportParser;
+
 public sealed class Report077Data
 {
     [JsonPropertyName("Katm_077_Claims_without_contract_count")]

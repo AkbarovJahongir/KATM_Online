@@ -1,7 +1,6 @@
 using Domain.Common.Settings;
 using Infrastructure.Common.Helpers.Logger;
 using Infrastructure.Services.CreditBureauReportServices;
-using Microsoft.Extensions.Logging;
 
 namespace CreditBureau;
 

@@ -1,4 +1,5 @@
 using CreditBureau;
+using Infrastructure.Services.CreditBureauReportServices;
 
 IHost host = Host.CreateDefaultBuilder(args)
     .ConfigureServices((context, services) =>
@@ -9,7 +10,6 @@ IHost host = Host.CreateDefaultBuilder(args)
         services.AddHostedService<Asoki>();
         services.AddHostedService<AsokiXml>();
         services.AddHostedService<CreditBureauReportWorker>();
-
     })
     .UseWindowsService()
     .Build();

@@ -1,4 +1,3 @@
-using System.Net.Http.Headers;
 using static Application.Repositories.RequestManager.IRequestManagerRepository;
 
 namespace Infrastructure.Services.HttpClients

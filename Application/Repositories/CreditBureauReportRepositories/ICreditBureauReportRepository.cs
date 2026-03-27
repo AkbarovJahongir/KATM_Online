@@ -74,7 +74,7 @@ public interface ICreditBureauReportRepository
     /// для которых ci004 = 1 и ci018 ещё не отправлен.
     /// Несколько счетов на один займ группируются в pAccountStatusesArray[].
     /// </summary>
-    public Task<List<CreditBureauReportQueueItem<CreditRegistrationAccountStatus>>> 
+    public Task<List<CreditBureauReportQueueItem<CreditRegistrationAccountStatus>>>
         GetAccountStatusRequestsAsync(CancellationToken cancellationToken);
 
     /// <summary>

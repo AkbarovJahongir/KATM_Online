@@ -8,8 +8,19 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="59229b5c-96e6-49ef-8ef2-aa3e37a50049" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/.idea.CreditBureau/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.CreditBureau/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Application/Repositories/CreditBureauReportRepositories/CreditBureauReportRepository.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Application/Repositories/CreditBureauReportRepositories/CreditBureauReportRepository.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Application/Repositories/CreditBureauReportRepositories/ICreditBureauReportRepository.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Application/Repositories/CreditBureauReportRepositories/ICreditBureauReportRepository.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau.Contracts/AsokiLoanApplications/CreditRegistration/CreditApplications/CreditRegistrationIndividualRequest.cs" beforeDir="false" afterPath="$PROJECT_DIR$/CreditBureau.Contracts/AsokiLoanApplications/CreditRegistration/CreditApplications/CreditRegistrationIndividualRequest.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau.Contracts/CreditReportParser/Report077Data.cs" beforeDir="false" afterPath="$PROJECT_DIR$/CreditBureau.Contracts/CreditReportParser/Report077Data.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau/CreditBureauReportWorker.cs" beforeDir="false" afterPath="$PROJECT_DIR$/CreditBureau/CreditBureauReportWorker.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau/Program.cs" beforeDir="false" afterPath="$PROJECT_DIR$/CreditBureau/Program.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/CreditBureau/appsettings.json" beforeDir="false" afterPath="$PROJECT_DIR$/CreditBureau/appsettings.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureauWorkerServerStateXml.txt" beforeDir="false" afterPath="$PROJECT_DIR$/CreditBureauWorkerServerStateXml.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Domain/Common/Settings/AsokiApplicationApiOptions.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Domain/Common/Settings/AsokiApplicationApiOptions.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Domain/Common/Settings/AsokiReportApiOptions.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Domain/Common/Settings/AsokiReportApiOptions.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/CreditBureauReportService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/CreditBureauReportService.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Infrastructure/Services/HttpClients/IRequestManagerService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Infrastructure/Services/HttpClients/IRequestManagerService.cs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -17,7 +28,7 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="28" />
+    <option name="cachedIndexableFilesCount" value="48" />
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -30,14 +41,37 @@
 }</component>
   <component name="GithubPullRequestsUISettings">{
   &quot;selectedUrlAndAccountId&quot;: {
-    &quot;url&quot;: &quot;https://github.com/Dilovarjon/CreditBureau.git&quot;,
+    &quot;url&quot;: &quot;https://github.com/AkbarovJahongir/KATM_Online.git&quot;,
     &quot;accountId&quot;: &quot;54afd200-021a-4286-b258-b68fc752dc7d&quot;
   }
+}</component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/eaf74182ad7c943aaf043fd9e7bbb1d564713c6bd276e62966aaa618e9/LoggerExtensions.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/Application/CreditRegistration/CreditRegistrationRepository.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/Application/CreditRegistration/ICreditRegistrationRepository.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/Application/Repositories/CreditBureauReportRepositories/CreditBureauReportRepository.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/Application/Repositories/CreditBureauReportRepositories/ICreditBureauReportRepository.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/Application/Repositories/RequestManager/RequestManagerRepository.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/CreditBureau/AsokiWorker.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/CreditBureau/AsokiWorkerXml.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/CreditBureau/CreditBureauReportWorker.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/CreditBureau/Program.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/CreditBureau/appsettings.json" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/Domain/Common/Settings/AsokiReportApiOptions.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/Infrastructure/CreditRegistration/CreditRegistrationService.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/CreditBureauReportService.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/Infrastructure/Services/HttpClients/IRequestManagerService.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/Infrastructure/Services/HttpClients/RequestManagerService.cs" root0="FORCE_HIGHLIGHTING" />
+  </component>
+  <component name="KubernetesApiPersistence">{}</component>
+  <component name="KubernetesApiProvider">{
+  &quot;isMigrated&quot;: true
 }</component>
   <component name="McpProjectServerCommands">
     <commands />
     <urls />
   </component>
+  <component name="MetaFilesCheckinStateConfiguration" checkMetaFiles="false" />
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 7
 }</component>
@@ -46,27 +80,28 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    ".NET Launch Settings Profile.CreditBureau.executor": "Debug",
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "Publish to folder.Publish CreditBureau to folder.executor": "Run",
-    "RunOnceActivity.MCP Project settings loaded": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
-    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
-    "git-widget-placeholder": "Jahongir",
-    "junie.onboarding.icon.badge.shown": "true",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "to.speed.mode.migration.done": "true",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;.NET Launch Settings Profile.CreditBureau.executor&quot;: &quot;Debug&quot;,
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;Publish to folder.Publish CreditBureau to folder.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RunManager" selected=".NET Launch Settings Profile.CreditBureau">
     <configuration name="Publish CreditBureau to folder" type="DotNetFolderPublish" factoryName="Publish to folder">
       <riderPublish configuration="Release" delete_existing_files="true" platform="Any CPU" target_folder="$PROJECT_DIR$/CreditBureau/bin/Release/net8.0/publish" target_framework="net8.0" uuid_high="7568107360686720467" uuid_low="-7370693459388361161">
@@ -104,12 +139,15 @@
       <workItem from="1773650026132" duration="3456000" />
       <workItem from="1773737969428" duration="1295000" />
       <workItem from="1773806941782" duration="2221000" />
+      <workItem from="1774496891454" duration="7942000" />
+      <workItem from="1774601159054" duration="1874000" />
     </task>
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
+  <component name="UnityCheckinConfiguration" checkUnsavedScenes="false" />
   <component name="UnityProjectConfiguration" hasMinimizedUI="false" />
   <component name="VcsManagerConfiguration">
     <option name="CLEAR_INITIAL_COMMIT_MESSAGE" value="true" />
@@ -129,20 +167,11 @@
           <properties exception="System.Threading.ThreadAbortException" breakIfHandledByOtherCode="false" displayValue="System.Threading.ThreadAbortException" />
           <option name="timeStamp" value="3" />
         </breakpoint>
-        <line-breakpoint enabled="true" type="DotNet Breakpoints">
-          <url>file://$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/CreditBureauReportService.cs</url>
-          <line>100</line>
-          <properties documentPath="C:\Users\jahongir.a\source\repos\CreditBureau\Infrastructure\Services\CreditBureauReportServices\CreditBureauReportService.cs" containingFunctionPresentation="Method 'CreditBureauReportProcessing'">
-            <startOffsets>
-              <option value="4152" />
-            </startOffsets>
-            <endOffsets>
-              <option value="4225" />
-            </endOffsets>
-          </properties>
-          <option name="timeStamp" value="4" />
-        </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
+  </component>
+  <component name="XSLT-Support.FileAssociations.UIState">
+    <expand />
+    <select />
   </component>
 </project>
