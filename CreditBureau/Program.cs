@@ -1,17 +1,30 @@
 using CreditBureau;
+using CreditBureau.Endpoints;
 using Infrastructure.Services.CreditBureauReportServices;
 
-IHost host = Host.CreateDefaultBuilder(args)
-    .ConfigureServices((context, services) =>
-    {
-        // Adding Dependency
-        services.AddCreditBureau(context);
-        // Adding Dependency
-        services.AddHostedService<Asoki>();
-        services.AddHostedService<AsokiXml>();
-        services.AddHostedService<CreditBureauReportWorker>();
-    })
-    .UseWindowsService()
-    .Build();
+var builder = WebApplication.CreateBuilder(args);
 
-await host.RunAsync();
+// Добавление сервисов
+builder.Services.AddHostedService<Asoki>();
+builder.Services.AddHostedService<AsokiXml>();
+builder.Services.AddHostedService<CreditBureauReportWorker>();
+builder.Services.AddCreditBureau(builder.Configuration);
+
+// Добавление HTTP endpoints
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+var app = builder.Build();
+
+// Настройка HTTP пайплайна
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+// Регистрация endpoints для отправки отчетов за период
+app.MapCreditBureauPeriodReportEndpoints();
+
+// Запуск Windows Service и HTTP сервера
+app.Run();

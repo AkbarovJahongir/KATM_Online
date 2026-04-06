@@ -363,3 +363,6 @@ MigrationBackup/
 FodyWeavers.xsd
 /CreditBureau.rar
 /CreditBureauWorkerServerState.txt
+
+# Old/refactored files
+*.old.cs

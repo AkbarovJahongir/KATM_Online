@@ -8,29 +8,36 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="59229b5c-96e6-49ef-8ef2-aa3e37a50049" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/.idea.CreditBureau/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.CreditBureau/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Application/Repositories/CreditBureauReportRepositories/CreditBureauReportRepository.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Application/Repositories/CreditBureauReportRepositories/CreditBureauReportRepository.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Application/Repositories/CreditBureauReportRepositories/ICreditBureauReportRepository.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Application/Repositories/CreditBureauReportRepositories/ICreditBureauReportRepository.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/CreditBureau.Contracts/AsokiLoanApplications/CreditRegistration/CreditApplications/CreditRegistrationIndividualRequest.cs" beforeDir="false" afterPath="$PROJECT_DIR$/CreditBureau.Contracts/AsokiLoanApplications/CreditRegistration/CreditApplications/CreditRegistrationIndividualRequest.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/CreditBureau.Contracts/CreditReportParser/Report077Data.cs" beforeDir="false" afterPath="$PROJECT_DIR$/CreditBureau.Contracts/CreditReportParser/Report077Data.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/CreditBureau/CreditBureauReportWorker.cs" beforeDir="false" afterPath="$PROJECT_DIR$/CreditBureau/CreditBureauReportWorker.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau/CreditBureau.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/CreditBureau/CreditBureau.csproj" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau/DependencyInjection.cs" beforeDir="false" afterPath="$PROJECT_DIR$/CreditBureau/DependencyInjection.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/CreditBureau/Program.cs" beforeDir="false" afterPath="$PROJECT_DIR$/CreditBureau/Program.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/CreditBureau/appsettings.json" beforeDir="false" afterPath="$PROJECT_DIR$/CreditBureau/appsettings.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/CreditBureauWorkerServerStateXml.txt" beforeDir="false" afterPath="$PROJECT_DIR$/CreditBureauWorkerServerStateXml.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Domain/Common/Settings/AsokiApplicationApiOptions.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Domain/Common/Settings/AsokiApplicationApiOptions.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Domain/Common/Settings/AsokiReportApiOptions.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Domain/Common/Settings/AsokiReportApiOptions.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Infrastructure/DependencyInjection.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Infrastructure/DependencyInjection.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/CreditBureauReportService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/CreditBureauReportService.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Infrastructure/Services/HttpClients/IRequestManagerService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Infrastructure/Services/HttpClients/IRequestManagerService.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/ICreditBureauReportService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/ICreditBureauReportService.cs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
+  <component name="DpaMonitoringSettings">
+    <option name="firstShow" value="false" />
+  </component>
   <component name="EmbeddingIndexingInfo">
     <option name="cachedIndexableFilesCount" value="48" />
   </component>
   <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="main" />
+      </map>
+    </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
@@ -42,7 +49,7 @@
   <component name="GithubPullRequestsUISettings">{
   &quot;selectedUrlAndAccountId&quot;: {
     &quot;url&quot;: &quot;https://github.com/AkbarovJahongir/KATM_Online.git&quot;,
-    &quot;accountId&quot;: &quot;54afd200-021a-4286-b258-b68fc752dc7d&quot;
+    &quot;accountId&quot;: &quot;ffddd2f8-c0df-4867-b9d2-c581e27466d4&quot;
   }
 }</component>
   <component name="HighlightingSettingsPerFile">
@@ -80,49 +87,44 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;.NET Launch Settings Profile.CreditBureau.executor&quot;: &quot;Debug&quot;,
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;Publish to folder.Publish CreditBureau to folder.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
-    &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    ".NET Launch Settings Profile.CreditBureau.executor": "Run",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "Publish to folder.Publish CreditBureau to folder.executor": "Run",
+    "RunOnceActivity.MCP Project settings loaded": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
+    "git-widget-placeholder": "qwen",
+    "junie.onboarding.icon.badge.shown": "true",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "to.speed.mode.migration.done": "true",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="RunManager" selected=".NET Launch Settings Profile.CreditBureau">
     <configuration name="Publish CreditBureau to folder" type="DotNetFolderPublish" factoryName="Publish to folder">
-      <riderPublish configuration="Release" delete_existing_files="true" platform="Any CPU" target_folder="$PROJECT_DIR$/CreditBureau/bin/Release/net8.0/publish" target_framework="net8.0" uuid_high="7568107360686720467" uuid_low="-7370693459388361161">
-        <runtimes>
-          <item value="Portable" />
-        </runtimes>
-      </riderPublish>
+      <riderPublish configuration="Release" delete_existing_files="true" platform="Any CPU" target_folder="$PROJECT_DIR$/CreditBureau/bin/Release/net8.0/publish" target_framework="net8.0" uuid_high="7568107360686720467" uuid_low="-7370693459388361161" />
       <method v="2" />
     </configuration>
     <configuration name="CreditBureau" type="LaunchSettings" factoryName=".NET Launch Settings Profile">
       <option name="LAUNCH_PROFILE_PROJECT_FILE_PATH" value="$PROJECT_DIR$/CreditBureau/CreditBureau.csproj" />
       <option name="LAUNCH_PROFILE_TFM" value="net8.0" />
       <option name="LAUNCH_PROFILE_NAME" value="CreditBureau" />
+      <option name="USE_EXTERNAL_CONSOLE" value="0" />
       <option name="USE_MONO" value="0" />
       <option name="RUNTIME_ARGUMENTS" value="" />
       <option name="GENERATE_APPLICATIONHOST_CONFIG" value="1" />
       <option name="SHOW_IIS_EXPRESS_OUTPUT" value="0" />
       <option name="SEND_DEBUG_REQUEST" value="1" />
       <option name="ADDITIONAL_IIS_EXPRESS_ARGUMENTS" value="" />
-      <option name="AUTO_ATTACH_CHILDREN" value="0" />
-      <option name="MIXED_MODE_DEBUG" value="0" />
       <method v="2">
         <option name="Build" />
       </method>
@@ -141,6 +143,8 @@
       <workItem from="1773806941782" duration="2221000" />
       <workItem from="1774496891454" duration="7942000" />
       <workItem from="1774601159054" duration="1874000" />
+      <workItem from="1775064910219" duration="6518000" />
+      <workItem from="1775111024310" duration="7831000" />
     </task>
     <servers />
   </component>
