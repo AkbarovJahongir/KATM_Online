@@ -63,12 +63,32 @@ public interface ICreditBureauReportRepository
     /// </summary>
     public Task<List<CreditBureauReportQueueItem<CreditRegistrationRepayment>>>
         GetCreditRegistrationRepaymentRequestsAsync(CancellationToken cancellationToken);
+    
+    /// <summary>
+    /// Получить все записи об остатках на счетах (CI-015) за указанную дату,
+    /// для которых ci004 = 1 и ci015 ещё не отправлен (ciStatus = 0).
+    /// </summary>
+    /// <param name="date">Дата для выборки данных</param>
+    /// <param name="cancellationToken">Токен отмены</param>
+    public Task<List<CreditBureauReportQueueItem<CreditRegistrationRepayment>>>
+        GetCreditRegistrationRepaymentRequestsByDateAsync(DateTime date, CancellationToken cancellationToken);
+    
     /// <summary>
     /// Получить все записи об остатках на счетах (CI-016),
     /// для которых ci004 = 1 и ci016 ещё не отправлен (ciStatus = 0).
     /// </summary>
     public Task<List<CreditBureauReportQueueItem<CreditRegistrationBankDitailRequest>>>
         GetCreditRegistrationBankDetailsRequestsAsync(CancellationToken cancellationToken);
+    
+    /// <summary>
+    /// Получить все записи о платежных документах (CI-016) за указанную дату,
+    /// для которых ci004 = 1 и ci016 ещё не отправлен (ciStatus = 0).
+    /// </summary>
+    /// <param name="date">Дата для выборки данных</param>
+    /// <param name="cancellationToken">Токен отмены</param>
+    public Task<List<CreditBureauReportQueueItem<CreditRegistrationBankDitailRequest>>>
+        GetCreditRegistrationBankDetailsRequestsByDateAsync(DateTime date, CancellationToken cancellationToken);
+    
     /// <summary>
     /// Получить все записи о статусах счетов (CI-018),
     /// для которых ci004 = 1 и ci018 ещё не отправлен.
@@ -76,6 +96,47 @@ public interface ICreditBureauReportRepository
     /// </summary>
     public Task<List<CreditBureauReportQueueItem<CreditRegistrationAccountStatus>>>
         GetAccountStatusRequestsAsync(CancellationToken cancellationToken);
+    
+    /// <summary>
+    /// Получить все записи о статусах счетов (CI-018) за указанную дату,
+    /// для которых ci004 = 1 и ci018 ещё не отправлен.
+    /// Несколько счетов на один займ группируются в pAccountStatusesArray[].
+    /// </summary>
+    /// <param name="date">Дата для выборки данных</param>
+    /// <param name="cancellationToken">Токен отмены</param>
+    public Task<List<CreditBureauReportQueueItem<CreditRegistrationAccountStatus>>>
+        GetAccountStatusRequestsByDateAsync(DateTime date, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Получить все записи об остатках на счетах (CI-015) за указанный период,
+    /// для которых ci004 = 1 и ci015 ещё не отправлен (ciStatus = 0).
+    /// </summary>
+    /// <param name="startDate">Дата начала периода</param>
+    /// <param name="endDate">Дата окончания периода</param>
+    /// <param name="cancellationToken">Токен отмены</param>
+    public Task<List<CreditBureauReportQueueItem<CreditRegistrationRepayment>>>
+        GetCreditRegistrationRepaymentRequestsByPeriodAsync(DateTime startDate, DateTime endDate, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Получить все записи о платежных документах (CI-016) за указанный период,
+    /// для которых ci004 = 1 и ci016 ещё не отправлен (ciStatus = 0).
+    /// </summary>
+    /// <param name="startDate">Дата начала периода</param>
+    /// <param name="endDate">Дата окончания периода</param>
+    /// <param name="cancellationToken">Токен отмены</param>
+    public Task<List<CreditBureauReportQueueItem<CreditRegistrationBankDitailRequest>>>
+        GetCreditRegistrationBankDetailsRequestsByPeriodAsync(DateTime startDate, DateTime endDate, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Получить все записи о статусах счетов (CI-018) за указанный период,
+    /// для которых ci004 = 1 и ci018 ещё не отправлен.
+    /// Несколько счетов на один займ группируются в pAccountStatusesArray[].
+    /// </summary>
+    /// <param name="startDate">Дата начала периода</param>
+    /// <param name="endDate">Дата окончания периода</param>
+    /// <param name="cancellationToken">Токен отмены</param>
+    public Task<List<CreditBureauReportQueueItem<CreditRegistrationAccountStatus>>>
+        GetAccountStatusRequestsByPeriodAsync(DateTime startDate, DateTime endDate, CancellationToken cancellationToken);
 
     /// <summary>
     /// Получить все лизинговые договоры (CI-011),

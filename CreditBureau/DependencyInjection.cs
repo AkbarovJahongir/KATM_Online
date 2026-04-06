@@ -12,28 +12,28 @@ namespace CreditBureau
 {
     public static class DependencyInjection
     {
-        public static void AddCreditBureau(this IServiceCollection services, HostBuilderContext context)
+        public static void AddCreditBureau(this IServiceCollection services, IConfiguration configuration)
         {
             Console.WriteLine("⚙️ Старт AddCreditBureau...");
 
             var workerSettings = new WorkerSettings();
-            context.Configuration.Bind(nameof(WorkerSettings), workerSettings);
+            configuration.Bind(nameof(WorkerSettings), workerSettings);
             services.AddSingleton(workerSettings);
             Console.WriteLine($"WorkerSettings загружены: IsStopFactorParser={workerSettings.IsStopFactorParser}");
 
             services.AddOptions<StopFactorParserSettings>()
-                    .Bind(context.Configuration.GetSection("StopFactorParserSettings"));
+                    .Bind(configuration.GetSection("StopFactorParserSettings"));
             Console.WriteLine("StopFactorParserSettings подключены");
 
             // Adding Logger To File
-            var logger = new LogWriter(context.HostingEnvironment.ContentRootPath, workerSettings.Logs);
+            var logger = new LogWriter(Directory.GetCurrentDirectory(), workerSettings.Logs);
             services.AddSingleton(logger);
             Console.WriteLine($"LogWriter инициализирован: Путь={workerSettings.Logs}");
             // Adding Logger To File
 
             /// START DB SETTINGS
             var databaseSettings = new DatabaseSettings();
-            context.Configuration.Bind(nameof(DatabaseSettings), databaseSettings);
+            configuration.Bind(nameof(DatabaseSettings), databaseSettings);
             var aes = new AesOperationService();
             databaseSettings.CIBConnection = databaseSettings.CIBConnection.Replace("**", aes.DecryptString(databaseSettings.Key, databaseSettings.CIBPassword));
             databaseSettings.DBConnection = databaseSettings.DBConnection.Replace("**", aes.DecryptString(databaseSettings.Key, databaseSettings.DBPassword));
@@ -43,17 +43,17 @@ namespace CreditBureau
 
             /// START Asoki Settings
             var asokiApplicationApiOptions = new AsokiApplicationApiOptions();
-            context.Configuration.Bind(nameof(AsokiApplicationApiOptions), asokiApplicationApiOptions);
+            configuration.Bind(nameof(AsokiApplicationApiOptions), asokiApplicationApiOptions);
             services.AddSingleton(asokiApplicationApiOptions);
             Console.WriteLine("AsokiApplicationApiOptions зарегистрированы");
 
             var bankHeader = new BankHeader();
-            context.Configuration.Bind(nameof(BankHeader), bankHeader);
+            configuration.Bind(nameof(BankHeader), bankHeader);
             services.AddSingleton(bankHeader);
             Console.WriteLine("BankHeader зарегистрирован");
 
             var asokiReportApiOptions = new AsokiReportApiOptions();
-            context.Configuration.Bind(nameof(AsokiReportApiOptions), asokiReportApiOptions);
+            configuration.Bind(nameof(AsokiReportApiOptions), asokiReportApiOptions);
             services.AddSingleton(asokiReportApiOptions);
             Console.WriteLine("AsokiReportApiOptions зарегистрированы");
 
