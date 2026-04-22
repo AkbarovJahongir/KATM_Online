@@ -1,6 +1,7 @@
 using Domain.Common.Settings;
 using Infrastructure.Common.Helpers.Logger;
 using Infrastructure.Services.CreditBureauReportServices;
+using Infrastructure.Services.Notifications;
 
 namespace CreditBureau;
 
@@ -8,11 +9,13 @@ public class CreditBureauReportWorker(
     WorkerSettings workerSettings,
     LogWriter logWriter,
     ICreditBureauReportService creditBureauReportService,
+    ITelegramNotificationService telegramNotificationService,
     ILogger<CreditBureauReportWorker> logger) : BackgroundService
 {
     private readonly WorkerSettings _workerSettings = workerSettings;
     private readonly LogWriter _logWriter = logWriter;
     private readonly ICreditBureauReportService _creditBureauReportService = creditBureauReportService;
+    private readonly ITelegramNotificationService _telegramNotificationService = telegramNotificationService;
     private readonly ILogger<CreditBureauReportWorker> _logger = logger;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -49,6 +52,10 @@ public class CreditBureauReportWorker(
             {
                 _logger.LogError(ex, "CreditBureauReportWorker iteration {Iteration} failed.", iteration);
                 _logWriter.Log("WorkerServerState.txt", "Catch AsokiProcessing message error: " + ex.Message + "\n" + ex.StackTrace);
+                await _telegramNotificationService.NotifyErrorAsync(
+                    "CreditBureauReportWorker",
+                    $"Iteration: {iteration}\nMessage: {ex.Message}\nStackTrace: {ex.StackTrace}",
+                    stoppingToken);
                 await Task.Delay(_workerSettings.DelayMilliseconds, stoppingToken);
             }
         }

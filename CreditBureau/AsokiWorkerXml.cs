@@ -1,14 +1,16 @@
 using Domain.Common.Settings;
 using Infrastructure.Common.Helpers.Logger;
 using Infrastructure.Services.AsokiXmlServices;
+using Infrastructure.Services.Notifications;
 
 namespace CreditBureau
 {
-    public class AsokiXml(WorkerSettings workerSettings, LogWriter logWriter, IAsokiXmlService asokiXmlService) : BackgroundService
+    public class AsokiXml(WorkerSettings workerSettings, LogWriter logWriter, IAsokiXmlService asokiXmlService, ITelegramNotificationService telegramNotificationService) : BackgroundService
     {
         private readonly WorkerSettings _workerSettings = workerSettings;
         private readonly LogWriter _logWriter = logWriter;
         private readonly IAsokiXmlService _asokiXmlService = asokiXmlService;
+        private readonly ITelegramNotificationService _telegramNotificationService = telegramNotificationService;
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
@@ -23,6 +25,10 @@ namespace CreditBureau
                 catch (Exception ex)
                 {
                     _logWriter.Log("WorkerServerStateXml.txt", "Catch AsokiProcessing message error: " + ex.Message + "\n" + ex.StackTrace);
+                    await _telegramNotificationService.NotifyErrorAsync(
+                        "AsokiXmlWorker",
+                        $"Message: {ex.Message}\nStackTrace: {ex.StackTrace}",
+                        stoppingToken);
                     await Task.Delay(_workerSettings.DelayMilliseconds, stoppingToken);
                 }
             }

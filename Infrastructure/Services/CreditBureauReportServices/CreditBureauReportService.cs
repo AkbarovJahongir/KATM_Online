@@ -56,8 +56,9 @@ public class CreditBureauReportService : ICreditBureauReportService
     /// </summary>
     /// <param name="startDate">Дата начала периода</param>
     /// <param name="endDate">Дата окончания периода</param>
+    /// <param name="loanKey">Фильтр по LoanKey (необязательно)</param>
     /// <param name="cancellationToken">Токен отмены</param>
-    public async Task<CiProcessingResult> SendCi015ByPeriodAsync(DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default)
+    public async Task<CiProcessingResult> SendCi015ByPeriodAsync(DateTime startDate, DateTime endDate, int? loanKey, CancellationToken cancellationToken = default)
     {
         var handler = _handlers.OfType<Ci015RepaymentRequestHandler>().FirstOrDefault();
         if (handler is null)
@@ -66,8 +67,8 @@ public class CreditBureauReportService : ICreditBureauReportService
             return new CiProcessingResult();
         }
 
-        _logger.LogInformation("Sending CI-015 for period {StartDate} - {EndDate}", startDate.ToString("yyyy-MM-dd"), endDate.ToString("yyyy-MM-dd"));
-        return await handler.SendByPeriodAsync(startDate, endDate, cancellationToken);
+        _logger.LogInformation("Sending CI-015 for period {StartDate} - {EndDate}, LoanKey: {LoanKey}", startDate.ToString("yyyy-MM-dd"), endDate.ToString("yyyy-MM-dd"), loanKey);
+        return await handler.SendByPeriodAsync(startDate, endDate, loanKey, cancellationToken);
     }
 
     /// <summary>
@@ -75,8 +76,9 @@ public class CreditBureauReportService : ICreditBureauReportService
     /// </summary>
     /// <param name="startDate">Дата начала периода</param>
     /// <param name="endDate">Дата окончания периода</param>
+    /// <param name="loanKey">Фильтр по LoanKey (необязательно)</param>
     /// <param name="cancellationToken">Токен отмены</param>
-    public async Task<CiProcessingResult> SendCi016ByPeriodAsync(DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default)
+    public async Task<CiProcessingResult> SendCi016ByPeriodAsync(DateTime startDate, DateTime endDate, int? loanKey, CancellationToken cancellationToken = default)
     {
         var handler = _handlers.OfType<Ci016BankDetailRequestHandler>().FirstOrDefault();
         if (handler is null)
@@ -85,8 +87,8 @@ public class CreditBureauReportService : ICreditBureauReportService
             return new CiProcessingResult();
         }
 
-        _logger.LogInformation("Sending CI-016 for period {StartDate} - {EndDate}", startDate.ToString("yyyy-MM-dd"), endDate.ToString("yyyy-MM-dd"));
-        return await handler.SendByPeriodAsync(startDate, endDate, cancellationToken);
+        _logger.LogInformation("Sending CI-016 for period {StartDate} - {EndDate}, LoanKey: {LoanKey}", startDate.ToString("yyyy-MM-dd"), endDate.ToString("yyyy-MM-dd"), loanKey);
+        return await handler.SendByPeriodAsync(startDate, endDate, loanKey, cancellationToken);
     }
 
     /// <summary>
@@ -94,8 +96,9 @@ public class CreditBureauReportService : ICreditBureauReportService
     /// </summary>
     /// <param name="startDate">Дата начала периода</param>
     /// <param name="endDate">Дата окончания периода</param>
+    /// <param name="loanKey">Фильтр по LoanKey (необязательно)</param>
     /// <param name="cancellationToken">Токен отмены</param>
-    public async Task<CiProcessingResult> SendCi018ByPeriodAsync(DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default)
+    public async Task<CiProcessingResult> SendCi018ByPeriodAsync(DateTime startDate, DateTime endDate, int? loanKey, CancellationToken cancellationToken = default)
     {
         var handler = _handlers.OfType<Ci018AccountStatusRequestHandler>().FirstOrDefault();
         if (handler is null)
@@ -104,7 +107,7 @@ public class CreditBureauReportService : ICreditBureauReportService
             return new CiProcessingResult();
         }
 
-        _logger.LogInformation("Sending CI-018 for period {StartDate} - {EndDate}", startDate.ToString("yyyy-MM-dd"), endDate.ToString("yyyy-MM-dd"));
-        return await handler.SendByPeriodAsync(startDate, endDate, cancellationToken);
+        _logger.LogInformation("Sending CI-018 for period {StartDate} - {EndDate}, LoanKey: {LoanKey}", startDate.ToString("yyyy-MM-dd"), endDate.ToString("yyyy-MM-dd"), loanKey);
+        return await handler.SendByPeriodAsync(startDate, endDate, loanKey, cancellationToken);
     }
 }

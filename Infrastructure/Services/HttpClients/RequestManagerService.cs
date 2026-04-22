@@ -2,6 +2,7 @@ using Application.Repositories.Helpers;
 using Application.Repositories.RequestManager;
 using Infrastructure.Common.Helpers.JsonHelpes;
 using Infrastructure.Common.Helpers.Logger;
+using Infrastructure.Services.Notifications;
 using Microsoft.Extensions.Logging;
 using System.Net;
 using System.Net.Http.Headers;
@@ -10,12 +11,13 @@ using static Application.Repositories.RequestManager.IRequestManagerRepository;
 
 namespace Infrastructure.Services.HttpClients
 {
-    public class RequestManagerService(LogWriter logWriter, ILogger<RequestManagerService> logger, IHelperRepository repository, IRequestManagerRepository requestManagerRepository) : IRequestManagerService
+    public class RequestManagerService(LogWriter logWriter, ILogger<RequestManagerService> logger, IHelperRepository repository, IRequestManagerRepository requestManagerRepository, ITelegramNotificationService telegramNotificationService) : IRequestManagerService
     {
         private readonly LogWriter _logWriter = logWriter;
         private readonly ILogger<RequestManagerService> _logger = logger;
         private readonly IHelperRepository _repository = repository;
         private readonly IRequestManagerRepository _requestManagerRepository = requestManagerRepository;
+        private readonly ITelegramNotificationService _telegramNotificationService = telegramNotificationService;
         public async Task<string> SendPostRequest(string url, string jsonData, string KeyLoanHistoryKb, IsXml isxml, CancellationToken cancellationToken)
         {
             string result = string.Empty;
@@ -133,6 +135,18 @@ namespace Infrastructure.Services.HttpClients
                     LoanKey,
                     (int)httpResponseMessage.StatusCode);
                 _logger.LogDebug("LoanKey:{LoanKey}. Response body: {ResponseBody}", LoanKey, responseBody);
+
+                var contentType = httpResponseMessage.Content.Headers.ContentType?.MediaType;
+                if (contentType != "application/json")
+                {
+                    _logger.LogWarning(
+                        "LoanKey:{LoanKey}. Unexpected Content-Type: {ContentType}. Response: {ResponseBody}",
+                        LoanKey, contentType, responseBody);
+                    _logWriter.Log(
+                        "RequestManager.txt",
+                        $"LoanKey:{LoanKey}. WARNING: Content-Type is {contentType}, expected application/json. ResponseBody:{responseBody}");
+                }
+
                 _logWriter.Log(
                     "RequestManager.txt",
                     $"LoanKey:{LoanKey}. ResponseStatus:{(int)httpResponseMessage.StatusCode}. ResponseBody:{responseBody}");
@@ -163,6 +177,10 @@ namespace Infrastructure.Services.HttpClients
                 DateTime dateResponse = DateTime.Now;
                 _logger.LogError(ex, "LoanKey:{LoanKey}. POST request failed", LoanKey);
                 _logWriter.Log("RequestManager.txt", $"LoanKey:{LoanKey}. POST request failed: {ex.Message}");
+                await _telegramNotificationService.NotifyErrorAsync(
+                    "RequestManagerService POST request failed",
+                    $"LoanKey: {LoanKey}\nUrl: {url}\nMessage: {ex.Message}\nException: {ex}",
+                    cancellationToken);
 
                 var (code, message) = await _requestManagerRepository.InsertRequestLog(
                     url,

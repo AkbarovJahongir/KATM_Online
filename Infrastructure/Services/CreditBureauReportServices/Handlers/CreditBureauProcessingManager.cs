@@ -1,3 +1,4 @@
+using Infrastructure.Services.Notifications;
 using Microsoft.Extensions.Logging;
 
 namespace Infrastructure.Services.CreditBureauReportServices.Handlers;
@@ -10,13 +11,16 @@ public class CreditBureauProcessingManager
 {
     private readonly IEnumerable<ICiHandler> _handlers;
     private readonly ILogger<CreditBureauProcessingManager> _logger;
+    private readonly ITelegramNotificationService _telegramNotificationService;
 
     public CreditBureauProcessingManager(
         IEnumerable<ICiHandler> handlers,
-        ILogger<CreditBureauProcessingManager> logger)
+        ILogger<CreditBureauProcessingManager> logger,
+        ITelegramNotificationService telegramNotificationService)
     {
         _handlers = handlers.OrderBy(h => h.CiCode).ToList();
         _logger = logger;
+        _telegramNotificationService = telegramNotificationService;
     }
 
     /// <summary>
@@ -40,6 +44,10 @@ public class CreditBureauProcessingManager
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error processing CI-{CiCode}. Error={Error}", handler.CiCode, ex.Message);
+                await _telegramNotificationService.NotifyErrorAsync(
+                    $"CreditBureauProcessingManager CI-{handler.CiCode:D3}",
+                    $"Message: {ex.Message}\nStackTrace: {ex.StackTrace}",
+                    cancellationToken);
             }
         }
 

@@ -1,6 +1,6 @@
 using Domain.Common.DbContext;
+using Microsoft.Data.SqlClient;
 using System.Data;
-using System.Data.SqlClient;
 using static Application.Repositories.RequestManager.IRequestManagerRepository;
 
 namespace Application.Repositories.RequestManager

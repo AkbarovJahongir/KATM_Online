@@ -1,5 +1,7 @@
+using Infrastructure.Common.Helpers.Logger;
 using Infrastructure.Services.CreditBureauReportServices;
 using Infrastructure.Services.CreditBureauReportServices.Handlers;
+using System.Text.Json;
 
 namespace CreditBureau.Endpoints;
 
@@ -14,19 +16,29 @@ public static class CreditBureauPeriodReportEndpoints
     /// </summary>
     public static void MapCreditBureauPeriodReportEndpoints(this WebApplication app)
     {
+        var apiGroup = app.MapGroup("/api");
+        apiGroup.WithRequestTimeout("ApiLongRunning");
+
         // POST /api/creditbureau/send-by-period
         // Тело запроса: { "startDate": "2024-01-01", "endDate": "2024-01-31", "ciCodes": [15, 16, 18] }
-        app.MapPost("/api/creditbureau/send-by-period", async (
+        apiGroup.MapPost("/creditbureau/send-by-period", async (
             PeriodReportRequest request,
             ICreditBureauReportService reportService,
+            LogWriter logWriter,
             ILogger<PeriodReportRequest> logger,
             CancellationToken cancellationToken) =>
         {
+            const string logFileName = "CreditBureauPeriodReportApi.txt";
+
             try
             {
+                logWriter.Log(
+                    logFileName,
+                    $"POST /api/creditbureau/send-by-period Request:{Environment.NewLine}{JsonSerializer.Serialize(request)}");
+
                 logger.LogInformation(
-                    "Получен запрос на отправку отчетов за период с {StartDate} по {EndDate}. Отчеты: {CiCodes}",
-                    request.StartDate, request.EndDate, string.Join(", ", request.CiCodes));
+                    "Получен запрос на отправку отчетов за период с {StartDate} по {EndDate}. Отчеты: {CiCodes}, LoanKey: {LoanKey}",
+                    request.StartDate, request.EndDate, string.Join(", ", request.CiCodes), request.LoanKey);
 
                 var results = new Dictionary<int, CiProcessingResult>();
 
@@ -41,9 +53,9 @@ public static class CreditBureauPeriodReportEndpoints
 
                     CiProcessingResult result = ciCode switch
                     {
-                        15 => await reportService.SendCi015ByPeriodAsync(request.StartDate, request.EndDate, cancellationToken),
-                        16 => await reportService.SendCi016ByPeriodAsync(request.StartDate, request.EndDate, cancellationToken),
-                        18 => await reportService.SendCi018ByPeriodAsync(request.StartDate, request.EndDate, cancellationToken),
+                        15 => await reportService.SendCi015ByPeriodAsync(request.StartDate, request.EndDate, request.LoanKey, cancellationToken),
+                        16 => await reportService.SendCi016ByPeriodAsync(request.StartDate, request.EndDate, request.LoanKey, cancellationToken),
+                        18 => await reportService.SendCi018ByPeriodAsync(request.StartDate, request.EndDate, request.LoanKey, cancellationToken),
                         _ => new CiProcessingResult()
                     };
 
@@ -53,7 +65,7 @@ public static class CreditBureauPeriodReportEndpoints
                         ciCode, result.Processed, result.Success, result.Error);
                 }
 
-                return Results.Ok(new PeriodReportResponse
+                var response = new PeriodReportResponse
                 {
                     Success = true,
                     Message = "Отчеты отправлены успешно",
@@ -64,13 +76,38 @@ public static class CreditBureauPeriodReportEndpoints
                             Processed = v.Value.Processed,
                             Success = v.Value.Success,
                             Error = v.Value.Error,
-                            Pending = v.Value.Pending
+                            Pending = v.Value.Pending,
+                            Details = v.Value.Details.Select(detail => new CiResultDetail
+                            {
+                                LoanKey = detail.LoanKey,
+                                IsSuccess = detail.IsSuccess,
+                                Message = detail.Message,
+                                RawResponse = detail.RawResponse
+                            }).ToList()
                         })
-                });
+                };
+
+                logWriter.Log(
+                    logFileName,
+                    $"POST /api/creditbureau/send-by-period Response:{Environment.NewLine}{JsonSerializer.Serialize(response)}");
+
+                return Results.Ok(response);
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Ошибка при отправке отчетов за период: {Error}", ex.Message);
+
+                var errorResponse = new
+                {
+                    Title = "Ошибка при отправке отчетов",
+                    Detail = ex.Message,
+                    StatusCode = StatusCodes.Status500InternalServerError
+                };
+
+                logWriter.Log(
+                    logFileName,
+                    $"POST /api/creditbureau/send-by-period ErrorResponse:{Environment.NewLine}{JsonSerializer.Serialize(errorResponse)}");
+
                 return Results.Problem(
                     title: "Ошибка при отправке отчетов",
                     detail: ex.Message,
@@ -82,7 +119,7 @@ public static class CreditBureauPeriodReportEndpoints
 
         // GET /api/creditbureau/health
         // Проверка доступности сервиса
-        app.MapGet("/api/creditbureau/health", () =>
+        apiGroup.MapGet("/creditbureau/health", () =>
         {
             return Results.Ok(new { Status = "OK", Timestamp = DateTime.UtcNow });
         })
@@ -109,6 +146,11 @@ public static class CreditBureauPeriodReportEndpoints
         /// Список CI-кодов для отправки (15, 16, 18)
         /// </summary>
         public List<int> CiCodes { get; set; } = new();
+
+        /// <summary>
+        /// Фильтр по конкретному LoanKey (необязательно). Если null, выбираются все займы за период.
+        /// </summary>
+        public int? LoanKey { get; set; }
     }
 
     /// <summary>
@@ -130,5 +172,14 @@ public static class CreditBureauPeriodReportEndpoints
         public int Success { get; set; }
         public int Error { get; set; }
         public int Pending { get; set; }
+        public List<CiResultDetail> Details { get; set; } = new();
+    }
+
+    public class CiResultDetail
+    {
+        public int LoanKey { get; set; }
+        public bool IsSuccess { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public string? RawResponse { get; set; }
     }
 }

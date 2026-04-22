@@ -1,7 +1,7 @@
-﻿using CreditBureau.Contracts.AsokiLoanApplications.CreditRegistration;
+using CreditBureau.Contracts.AsokiLoanApplications.CreditRegistration;
 using CreditBureau.Contracts.AsokiLoanApplications.CreditRegistration.CreditApplications;
 using Domain.Common.DbContext;
-using System.Data.SqlClient;
+using Microsoft.Data.SqlClient;
 
 namespace Application.CreditRegistration
 {

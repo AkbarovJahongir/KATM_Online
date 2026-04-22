@@ -6,6 +6,7 @@ using Infrastructure.Services.AsokiXmlServices;
 using Infrastructure.Services.CreditBureauReportServices;
 using Infrastructure.Services.CreditBureauReportServices.Handlers;
 using Infrastructure.Services.HttpClients;
+using Infrastructure.Services.Notifications;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Infrastructure
@@ -17,10 +18,11 @@ namespace Infrastructure
             services.AddSingleton<ICreditReportService, CreditReportService>();
             services.AddSingleton<ICreditRegistrationService, CreditRegistrationService>();
             services.AddSingleton<IRequestManagerService, RequestManagerService>();
+            services.AddSingleton<ITelegramNotificationService, TelegramNotificationService>();
             services.AddSingleton<IAsokiXmlService, AsokiXmlService>();
             services.AddSingleton<IAsokiService, AsokiService>();
             services.AddSingleton<ICreditReportXmlService, CreditReportXmlService>();
-            
+
             // Обработчики CI-запросов
             services.AddSingleton<ICiHandler, Ci001IndividualRequestHandler>();
             services.AddSingleton<ICiHandler, Ci002EntityRequestHandler>();
@@ -34,10 +36,10 @@ namespace Infrastructure
             services.AddSingleton<ICiHandler, Ci021PledgeSecurityRequestHandler>();
             services.AddSingleton<ICiHandler, Ci022BusinessDetailRequestHandler>();
             services.AddSingleton<ICiHandler, Ci023SubjectRequestHandler>();
-            
+
             // Менеджер обработки
             services.AddSingleton<CreditBureauProcessingManager>();
-            
+
             // Рефакторенный сервис (использует обработчики)
             services.AddSingleton<ICreditBureauReportService, CreditBureauReportService>();
         }

@@ -3,7 +3,9 @@
 namespace CreditBureau.Contracts.AsokiLoanApplications.CreditRegistration.CreditApplications
 {
     public class CreditRegistrationEntityRequest
-    {
+    {  
+        [JsonProperty(PropertyName = "pHead")]
+        public string? PHead { get; set; }
         [JsonProperty(PropertyName = "claim_id")]
         public string? ClaimId { get; set; }
         [JsonProperty(PropertyName = "claim_date")]

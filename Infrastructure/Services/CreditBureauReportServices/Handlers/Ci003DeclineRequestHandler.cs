@@ -6,12 +6,11 @@ using Domain.Common.Constants;
 using Domain.Common.Settings;
 using Infrastructure.Common.Helpers.JsonHelpes;
 using Infrastructure.Common.Helpers.Logger;
-using Infrastructure.Services.CreditBureauReportServices.Handlers;
 using Infrastructure.Services.HttpClients;
+using Infrastructure.Services.Notifications;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
-using RequestSecurity = CreditBureau.Contracts.Common.RequestSecurity;
 using BankHeader = CreditBureau.Contracts.AsokiLoanApplications.CreditRegistration.CreditApplications.BankHeader;
+using RequestSecurity = CreditBureau.Contracts.Common.RequestSecurity;
 
 namespace Infrastructure.Services.CreditBureauReportServices.Handlers;
 
@@ -28,8 +27,9 @@ public class Ci003DeclineRequestHandler : CiHandlerBase<CreditRegistrationDeclin
         RequestSecurity requestSecurity,
         BankHeader bankHeader,
         LogWriter logWriter,
+        ITelegramNotificationService telegramNotificationService,
         ILogger<Ci003DeclineRequestHandler> logger)
-        : base(creditBureauReportRepository, requestManagerService, asokiReportApiOptions, asokiApplicationApiOptions, requestSecurity, bankHeader, logWriter, logger)
+        : base(creditBureauReportRepository, requestManagerService, asokiReportApiOptions, asokiApplicationApiOptions, requestSecurity, bankHeader, logWriter, telegramNotificationService, logger)
     {
     }
 
@@ -58,7 +58,7 @@ public class Ci003DeclineRequestHandler : CiHandlerBase<CreditRegistrationDeclin
             try
             {
                 SetStandardFields(item.Request);
-                
+
                 var baseRequest = CreateBaseRequest(item.Request);
 
                 var response = await RequestManagerService.SendPostRequest(
@@ -75,8 +75,27 @@ public class Ci003DeclineRequestHandler : CiHandlerBase<CreditRegistrationDeclin
                     continue;
                 }
 
-                var wrappedResponse = JsonConvert.DeserializeObject<BaseResponse<CreditRegistrationResponse>>(response);
-                var baseResponse = wrappedResponse?.data ?? JsonConvert.DeserializeObject<CreditRegistrationResponse>(response);
+                if (!IsJsonResponse(response))
+                {
+                    result.Error++;
+                    var invalidFormatMessage = $"Invalid response from API: {GetResponsePreview(response, 200)}";
+                    await NotifyErrorAsync($"CI-{CiCode:D3} invalid response format", item.LoanKey, GetResponsePreview(response, 1500), cancellationToken);
+                    await CreditBureauReportRepository.UpsertCiStatusAsync(
+                        item.LoanKey, CiCode, 2, invalidFormatMessage, null, cancellationToken);
+                    continue;
+                }
+
+                var wrappedResponse = TryDeserializeJson<BaseResponse<CreditRegistrationResponse>>(response);
+                var baseResponse = wrappedResponse?.data ?? TryDeserializeJson<CreditRegistrationResponse>(response);
+                if (baseResponse is null)
+                {
+                    result.Error++;
+                    var invalidJsonMessage = $"Invalid JSON structure from API: {GetResponsePreview(response, 200)}";
+                    await NotifyErrorAsync($"CI-{CiCode:D3} invalid JSON structure", item.LoanKey, GetResponsePreview(response, 1500), cancellationToken);
+                    await CreditBureauReportRepository.UpsertCiStatusAsync(
+                        item.LoanKey, CiCode, 2, invalidJsonMessage, null, cancellationToken);
+                    continue;
+                }
                 var isSuccess = baseResponse?.result is CreditBureauResultCodes.SUCCESS_00000 or CreditBureauResultCodes.SUCCESS_05000;
                 var message = baseResponse?.resultMessage ?? wrappedResponse?.errorMessage ?? (isSuccess ? "Success" : "Unknown error");
                 var ciStatus = (byte)(isSuccess ? 1 : 2);
@@ -90,6 +109,7 @@ public class Ci003DeclineRequestHandler : CiHandlerBase<CreditRegistrationDeclin
                 else
                 {
                     result.Error++;
+                    await NotifyErrorAsync($"CI-{CiCode:D3} API error", item.LoanKey, $"Message: {message}\nResponse: {GetResponsePreview(response, 1500)}", cancellationToken);
                     Logger.LogError("LoanKey:{LoanKey} CI-{CiCode} error. Response:{Response}", item.LoanKey, CiCode, response);
                     LogWriter.Log("CreditRegistrationDecline.txt", $"LoanKey:{item.LoanKey} CI-{CiCode:D3} error. Response:{response}");
                 }
@@ -100,6 +120,7 @@ public class Ci003DeclineRequestHandler : CiHandlerBase<CreditRegistrationDeclin
             catch (Exception ex)
             {
                 result.Error++;
+                await NotifyErrorAsync($"CI-{CiCode:D3} processing exception", item.LoanKey, $"Message: {ex.Message}\nStackTrace: {ex.StackTrace}", cancellationToken);
                 Logger.LogError(ex, "CI-{CiCode} error processing LoanKey={LoanKey}. Error={Error}", CiCode, item.LoanKey, ex.Message);
                 await CreditBureauReportRepository.UpsertCiStatusAsync(
                     item.LoanKey, CiCode, 2, $"CI-{CiCode:D3} processing error: {ex.Message}", null, cancellationToken);

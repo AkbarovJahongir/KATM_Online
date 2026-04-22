@@ -1,6 +1,6 @@
-﻿using CreditBureau.Contracts.AsokiLoanApplications;
+using CreditBureau.Contracts.AsokiLoanApplications;
 using Domain.Common.DbContext;
-using System.Data.SqlClient;
+using Microsoft.Data.SqlClient;
 
 namespace Application.Repositories.AsokiRepositories
 {

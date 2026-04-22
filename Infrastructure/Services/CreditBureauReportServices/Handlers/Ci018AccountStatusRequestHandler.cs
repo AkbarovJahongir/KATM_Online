@@ -1,4 +1,3 @@
-using Application.Repositories.CreditBureauReportRepositories;
 using CreditBureau.Contracts.AsokiLoanApplications.CreditRegistration.CreditAgreementsAndLeasing.Requests;
 using CreditBureau.Contracts.AsokiLoanApplications.CreditRegistration.CreditAgreementsAndLeasing.Responses;
 using CreditBureau.Contracts.Common;
@@ -6,12 +5,10 @@ using Domain.Common.Constants;
 using Domain.Common.Settings;
 using Infrastructure.Common.Helpers.JsonHelpes;
 using Infrastructure.Common.Helpers.Logger;
-using Infrastructure.Services.CreditBureauReportServices.Handlers;
-using Infrastructure.Services.HttpClients;
+using Infrastructure.Services.Notifications;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
-using RequestSecurity = CreditBureau.Contracts.Common.RequestSecurity;
 using BankHeader = CreditBureau.Contracts.AsokiLoanApplications.CreditRegistration.CreditApplications.BankHeader;
+using RequestSecurity = CreditBureau.Contracts.Common.RequestSecurity;
 
 namespace Infrastructure.Services.CreditBureauReportServices.Handlers;
 
@@ -28,8 +25,9 @@ public class Ci018AccountStatusRequestHandler : CiHandlerBase<CreditRegistration
         RequestSecurity requestSecurity,
         BankHeader bankHeader,
         Common.Helpers.Logger.LogWriter logWriter,
+        ITelegramNotificationService telegramNotificationService,
         ILogger<Ci018AccountStatusRequestHandler> logger)
-        : base(creditBureauReportRepository, requestManagerService, asokiReportApiOptions, asokiApplicationApiOptions, requestSecurity, bankHeader, logWriter, logger)
+        : base(creditBureauReportRepository, requestManagerService, asokiReportApiOptions, asokiApplicationApiOptions, requestSecurity, bankHeader, logWriter, telegramNotificationService, logger)
     {
     }
 
@@ -49,6 +47,7 @@ public class Ci018AccountStatusRequestHandler : CiHandlerBase<CreditRegistration
             if (item.Request is null)
             {
                 result.Error++;
+                result.AddDetail(item.LoanKey, false, "CI-018 request is null");
                 Logger.LogWarning("CI-{CiCode} skipped due to null request. LoanKey={LoanKey}", CiCode, item.LoanKey);
                 await CreditBureauReportRepository.UpsertCiStatusAsync(
                     item.LoanKey, CiCode, 2, "CI-018 request is null", null, cancellationToken);
@@ -58,7 +57,7 @@ public class Ci018AccountStatusRequestHandler : CiHandlerBase<CreditRegistration
             try
             {
                 SetStandardFields(item.Request, FormatKatmDate(System.DateTimeOffset.Now));
-                
+
                 var baseRequest = CreateBaseRequest(item.Request);
 
                 var response = await RequestManagerService.SendPostRequest(
@@ -70,14 +69,39 @@ public class Ci018AccountStatusRequestHandler : CiHandlerBase<CreditRegistration
                 if (string.IsNullOrWhiteSpace(response))
                 {
                     result.Error++;
+                    result.AddDetail(item.LoanKey, false, "CI-018 returned empty response");
                     Logger.LogError("CI-{CiCode} empty response. LoanKey={LoanKey}", CiCode, item.LoanKey);
+                    await NotifyErrorAsync($"CI-{CiCode:D3} empty response", item.LoanKey, "API returned empty response", cancellationToken);
                     await CreditBureauReportRepository.UpsertCiStatusAsync(
                         item.LoanKey, CiCode, 2, "CI-018 returned empty response", null, cancellationToken);
                     continue;
                 }
 
-                var wrappedResponse = JsonConvert.DeserializeObject<BaseResponse<CreditRegistrationResponse>>(response);
-                var baseResponse = wrappedResponse?.data ?? JsonConvert.DeserializeObject<CreditRegistrationResponse>(response);
+                if (!IsJsonResponse(response))
+                {
+                    result.Error++;
+                    var invalidFormatMessage = $"Invalid response from API: {GetResponsePreview(response, 200)}";
+                    result.AddDetail(item.LoanKey, false, invalidFormatMessage, response);
+                    Logger.LogWarning("LoanKey:{LoanKey} CI-{CiCode} invalid response format. Response:{Response}", item.LoanKey, CiCode, GetResponsePreview(response, 500));
+                    await NotifyErrorAsync($"CI-{CiCode:D3} invalid response format", item.LoanKey, GetResponsePreview(response, 1500), cancellationToken);
+                    await CreditBureauReportRepository.UpsertCiStatusAsync(
+                        item.LoanKey, CiCode, 2, invalidFormatMessage, null, cancellationToken);
+                    continue;
+                }
+
+                var wrappedResponse = TryDeserializeJson<BaseResponse<CreditRegistrationResponse>>(response);
+                var baseResponse = wrappedResponse?.data ?? TryDeserializeJson<CreditRegistrationResponse>(response);
+                if (baseResponse is null)
+                {
+                    result.Error++;
+                    var invalidJsonMessage = $"Invalid JSON structure from API: {GetResponsePreview(response, 200)}";
+                    result.AddDetail(item.LoanKey, false, invalidJsonMessage, response);
+                    await NotifyErrorAsync($"CI-{CiCode:D3} invalid JSON structure", item.LoanKey, GetResponsePreview(response, 1500), cancellationToken);
+                    await CreditBureauReportRepository.UpsertCiStatusAsync(
+                        item.LoanKey, CiCode, 2, invalidJsonMessage, null, cancellationToken);
+                    continue;
+                }
+
                 var isSuccess = baseResponse?.result is CreditBureauResultCodes.SUCCESS_00000 or CreditBureauResultCodes.SUCCESS_05000;
                 var message = baseResponse?.resultMessage ?? wrappedResponse?.errorMessage ?? (isSuccess ? "Success" : "Unknown error");
                 var ciStatus = (byte)(isSuccess ? 1 : 2);
@@ -85,12 +109,15 @@ public class Ci018AccountStatusRequestHandler : CiHandlerBase<CreditRegistration
                 if (isSuccess)
                 {
                     result.Success++;
+                    result.AddDetail(item.LoanKey, true, message, response);
                     Logger.LogInformation("LoanKey:{LoanKey} CI-{CiCode} success.", item.LoanKey, CiCode);
                     LogWriter.Log("CreditRegistrationAccountStatus.txt", $"LoanKey:{item.LoanKey} CI-{CiCode:D3} success.");
                 }
                 else
                 {
                     result.Error++;
+                    result.AddDetail(item.LoanKey, false, message, response);
+                    await NotifyErrorAsync($"CI-{CiCode:D3} API error", item.LoanKey, $"Message: {message}\nResponse: {GetResponsePreview(response, 1500)}", cancellationToken);
                     Logger.LogError("LoanKey:{LoanKey} CI-{CiCode} error. Response:{Response}", item.LoanKey, CiCode, response);
                     LogWriter.Log("CreditRegistrationAccountStatus.txt", $"LoanKey:{item.LoanKey} CI-{CiCode:D3} error. Response:{response}");
                 }
@@ -101,6 +128,8 @@ public class Ci018AccountStatusRequestHandler : CiHandlerBase<CreditRegistration
             catch (Exception ex)
             {
                 result.Error++;
+                result.AddDetail(item.LoanKey, false, $"CI-{CiCode:D3} processing error: {ex.Message}");
+                await NotifyErrorAsync($"CI-{CiCode:D3} processing exception", item.LoanKey, $"Message: {ex.Message}\nStackTrace: {ex.StackTrace}", cancellationToken);
                 Logger.LogError(ex, "CI-{CiCode} error processing LoanKey={LoanKey}. Error={Error}", CiCode, item.LoanKey, ex.Message);
                 await CreditBureauReportRepository.UpsertCiStatusAsync(
                     item.LoanKey, CiCode, 2, $"CI-{CiCode:D3} processing error: {ex.Message}", null, cancellationToken);
@@ -119,11 +148,12 @@ public class Ci018AccountStatusRequestHandler : CiHandlerBase<CreditRegistration
     /// </summary>
     /// <param name="startDate">Дата начала периода</param>
     /// <param name="endDate">Дата окончания периода</param>
+    /// <param name="loanKey">Фильтр по LoanKey (необязательно)</param>
     /// <param name="cancellationToken">Токен отмены</param>
-    public async Task<CiProcessingResult> SendByPeriodAsync(DateTime startDate, DateTime endDate, CancellationToken cancellationToken)
+    public async Task<CiProcessingResult> SendByPeriodAsync(DateTime startDate, DateTime endDate, int? loanKey, CancellationToken cancellationToken)
     {
-        var requests = await CreditBureauReportRepository.GetAccountStatusRequestsByPeriodAsync(startDate, endDate, cancellationToken);
-        Logger.LogInformation("CI-{CiCode} queue loaded for period {StartDate} - {EndDate}. Count={Count}", CiCode, startDate.ToString("yyyy-MM-dd"), endDate.ToString("yyyy-MM-dd"), requests.Count);
+        var requests = await CreditBureauReportRepository.GetAccountStatusRequestsByPeriodAsync(startDate, endDate, loanKey, cancellationToken);
+        Logger.LogInformation("CI-{CiCode} queue loaded for period {StartDate} - {EndDate}, LoanKey: {LoanKey}. Count={Count}", CiCode, startDate.ToString("yyyy-MM-dd"), endDate.ToString("yyyy-MM-dd"), loanKey, requests.Count);
 
         var result = new CiProcessingResult();
 
@@ -134,6 +164,7 @@ public class Ci018AccountStatusRequestHandler : CiHandlerBase<CreditRegistration
             if (item.Request is null)
             {
                 result.Error++;
+                result.AddDetail(item.LoanKey, false, "CI-018 request is null");
                 Logger.LogWarning("CI-{CiCode} skipped due to null request. LoanKey={LoanKey}", CiCode, item.LoanKey);
                 await CreditBureauReportRepository.UpsertCiStatusAsync(
                     item.LoanKey, CiCode, 2, "CI-018 request is null", null, cancellationToken);
@@ -155,14 +186,39 @@ public class Ci018AccountStatusRequestHandler : CiHandlerBase<CreditRegistration
                 if (string.IsNullOrWhiteSpace(response))
                 {
                     result.Error++;
+                    result.AddDetail(item.LoanKey, false, "CI-018 returned empty response");
                     Logger.LogError("CI-{CiCode} empty response. LoanKey={LoanKey}", CiCode, item.LoanKey);
+                    await NotifyErrorAsync($"CI-{CiCode:D3} empty response", item.LoanKey, "API returned empty response", cancellationToken);
                     await CreditBureauReportRepository.UpsertCiStatusAsync(
                         item.LoanKey, CiCode, 2, "CI-018 returned empty response", null, cancellationToken);
                     continue;
                 }
 
-                var wrappedResponse = JsonConvert.DeserializeObject<BaseResponse<CreditRegistrationResponse>>(response);
-                var baseResponse = wrappedResponse?.data ?? JsonConvert.DeserializeObject<CreditRegistrationResponse>(response);
+                if (!IsJsonResponse(response))
+                {
+                    result.Error++;
+                    var invalidFormatMessage = $"Invalid response from API: {GetResponsePreview(response, 200)}";
+                    result.AddDetail(item.LoanKey, false, invalidFormatMessage, response);
+                    Logger.LogWarning("LoanKey:{LoanKey} CI-{CiCode} invalid response format. Response:{Response}", item.LoanKey, CiCode, GetResponsePreview(response, 500));
+                    await NotifyErrorAsync($"CI-{CiCode:D3} invalid response format", item.LoanKey, GetResponsePreview(response, 1500), cancellationToken);
+                    await CreditBureauReportRepository.UpsertCiStatusAsync(
+                        item.LoanKey, CiCode, 2, invalidFormatMessage, null, cancellationToken);
+                    continue;
+                }
+
+                var wrappedResponse = TryDeserializeJson<BaseResponse<CreditRegistrationResponse>>(response);
+                var baseResponse = wrappedResponse?.data ?? TryDeserializeJson<CreditRegistrationResponse>(response);
+                if (baseResponse is null)
+                {
+                    result.Error++;
+                    var invalidJsonMessage = $"Invalid JSON structure from API: {GetResponsePreview(response, 200)}";
+                    result.AddDetail(item.LoanKey, false, invalidJsonMessage, response);
+                    await NotifyErrorAsync($"CI-{CiCode:D3} invalid JSON structure", item.LoanKey, GetResponsePreview(response, 1500), cancellationToken);
+                    await CreditBureauReportRepository.UpsertCiStatusAsync(
+                        item.LoanKey, CiCode, 2, invalidJsonMessage, null, cancellationToken);
+                    continue;
+                }
+
                 var isSuccess = baseResponse?.result is CreditBureauResultCodes.SUCCESS_00000 or CreditBureauResultCodes.SUCCESS_05000;
                 var message = baseResponse?.resultMessage ?? wrappedResponse?.errorMessage ?? (isSuccess ? "Success" : "Unknown error");
                 var ciStatus = (byte)(isSuccess ? 1 : 2);
@@ -170,12 +226,15 @@ public class Ci018AccountStatusRequestHandler : CiHandlerBase<CreditRegistration
                 if (isSuccess)
                 {
                     result.Success++;
+                    result.AddDetail(item.LoanKey, true, message, response);
                     Logger.LogInformation("LoanKey:{LoanKey} CI-{CiCode} success.", item.LoanKey, CiCode);
                     LogWriter.Log("CreditRegistrationAccountStatus.txt", $"LoanKey:{item.LoanKey} CI-{CiCode:D3} success.");
                 }
                 else
                 {
                     result.Error++;
+                    result.AddDetail(item.LoanKey, false, message, response);
+                    await NotifyErrorAsync($"CI-{CiCode:D3} API error", item.LoanKey, $"Message: {message}\nResponse: {GetResponsePreview(response, 1500)}", cancellationToken);
                     Logger.LogError("LoanKey:{LoanKey} CI-{CiCode} error. Response:{Response}", item.LoanKey, CiCode, response);
                     LogWriter.Log("CreditRegistrationAccountStatus.txt", $"LoanKey:{item.LoanKey} CI-{CiCode:D3} error. Response:{response}");
                 }
@@ -186,6 +245,8 @@ public class Ci018AccountStatusRequestHandler : CiHandlerBase<CreditRegistration
             catch (Exception ex)
             {
                 result.Error++;
+                result.AddDetail(item.LoanKey, false, $"CI-{CiCode:D3} processing error: {ex.Message}");
+                await NotifyErrorAsync($"CI-{CiCode:D3} processing exception", item.LoanKey, $"Message: {ex.Message}\nStackTrace: {ex.StackTrace}", cancellationToken);
                 Logger.LogError(ex, "CI-{CiCode} error processing LoanKey={LoanKey}. Error={Error}", CiCode, item.LoanKey, ex.Message);
                 await CreditBureauReportRepository.UpsertCiStatusAsync(
                     item.LoanKey, CiCode, 2, $"CI-{CiCode:D3} processing error: {ex.Message}", null, cancellationToken);
@@ -193,8 +254,8 @@ public class Ci018AccountStatusRequestHandler : CiHandlerBase<CreditRegistration
         }
 
         Logger.LogInformation(
-            "CI-{CiCode} completed for period {StartDate} - {EndDate}. Processed={Processed}, Success={Success}, Error={Error}",
-            CiCode, startDate.ToString("yyyy-MM-dd"), endDate.ToString("yyyy-MM-dd"), result.Processed, result.Success, result.Error);
+            "CI-{CiCode} completed for period {StartDate} - {EndDate}, LoanKey: {LoanKey}. Processed={Processed}, Success={Success}, Error={Error}",
+            CiCode, startDate.ToString("yyyy-MM-dd"), endDate.ToString("yyyy-MM-dd"), loanKey, result.Processed, result.Success, result.Error);
 
         return result;
     }
