@@ -55,7 +55,8 @@ public class Ci004CreditRegistrationRequestHandler : CiHandlerBase<CreditRegistr
 
             try
             {
-                SetStandardFields(item.Request);
+                item.Request.PDate = FormatKatmIsoDateAtStartOfDay(DateTimeOffset.Now);
+                SetStandardFields(item.Request, item.Request.PDate);
 
                 var baseRequest = CreateBaseRequest(item.Request);
 

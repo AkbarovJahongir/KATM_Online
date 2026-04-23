@@ -56,6 +56,7 @@ public class Ci018AccountStatusRequestHandler : CiHandlerBase<CreditRegistration
 
             try
             {
+                item.Request.PDate = FormatKatmIsoDateAtStartOfDay(DateTimeOffset.Now);
                 SetStandardFields(item.Request, FormatKatmDate(System.DateTimeOffset.Now));
 
                 var baseRequest = CreateBaseRequest(item.Request);

@@ -13,5 +13,6 @@
         public string? Status { get; set; }
         public int? QuantitySelected { get; set; }
         public string? ApplicationsSubjectType { get; set; }
+        public int? PReportReason { get; set; }
     }
 }

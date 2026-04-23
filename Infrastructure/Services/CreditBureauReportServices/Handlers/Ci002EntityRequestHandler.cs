@@ -55,6 +55,8 @@ public class Ci002EntityRequestHandler : CiHandlerBase<CreditRegistrationEntityR
 
             try
             {
+                SetStandardFields(item.Request);
+
                 var baseRequest = new BaseRequestForCreditApplications<CreditRegistrationEntityRequest>
                 {
                     Header = BankHeader,

@@ -28,6 +28,7 @@ namespace Application.Repositories.AsokiRepositories
                     KeyLoanHistoryKb = reader["keyLoanHistoryKb"].ToString()!,
                     PClaimId = reader["pClaimId"].ToString()!,
                     PReportId = reader["pReportId"].ToString()!,
+                    PReportReason = reader["pReportReason"] is DBNull ? null : Convert.ToInt32(reader["pReportReason"]),
                     PLoanSubject = reader["pLoanSubject"] is DBNull ? null : reader["pLoanSubject"].ToString(),
                     PLoanSubjectType = reader["pLoanSubjectType"] is DBNull ? null : reader["pLoanSubjectType"].ToString(),
                     PPin = reader["pPin"] is DBNull ? null : reader["pPin"].ToString(),
@@ -60,6 +61,7 @@ namespace Application.Repositories.AsokiRepositories
                     KeyLoanHistoryKb = reader["keyLoanHistoryKb"].ToString()!,
                     PClaimId = reader["pClaimId"].ToString()!,
                     PReportId = reader["pReportId"].ToString()!,
+                    PReportReason = reader["pReportReason"] is DBNull ? null : Convert.ToInt32(reader["pReportReason"]),
                     PLoanSubject = reader["pLoanSubject"] is DBNull ? null : reader["pLoanSubject"].ToString(),
                     PLoanSubjectType = reader["pLoanSubjectType"] is DBNull ? null : reader["pLoanSubjectType"].ToString(),
                     PPin = reader["pPin"] is DBNull ? null : reader["pPin"].ToString(),
@@ -72,6 +74,19 @@ namespace Application.Repositories.AsokiRepositories
             }
             await connect.CloseAsync();
             return resultData;
+        }
+
+        public async Task UpdateRequestHistoryXmlStatusAsync(string keyLoanHistoryKb, string status, CancellationToken cancellationToken)
+        {
+            using var connect = new SqlConnection(_databaseSettings.CIBConnection);
+            using var cmd = new SqlCommand(
+                "UPDATE [dbo].[Request_History_Xml] SET [status] = @status WHERE [key_ABS_Loan] = @keyLoanHistoryKb",
+                connect);
+            cmd.Parameters.AddWithValue("@status", status);
+            cmd.Parameters.AddWithValue("@keyLoanHistoryKb", keyLoanHistoryKb);
+            await connect.OpenAsync(cancellationToken);
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
+            await connect.CloseAsync();
         }
     }
 }

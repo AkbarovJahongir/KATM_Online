@@ -55,6 +55,7 @@ public class Ci005RepaymentScheduleHandler : CiHandlerBase<CreditRegistrationRep
 
             try
             {
+                item.Request.PDate = FormatKatmIsoDateAtStartOfDay(DateTimeOffset.Now);
                 SetStandardFields(item.Request);
 
                 var baseRequest = CreateBaseRequest(item.Request);

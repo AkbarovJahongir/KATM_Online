@@ -238,4 +238,20 @@ public interface ICreditBureauReportRepository
         string? message,
         string? token,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Получить статус ci001 для конкретного займа (физ. лицо).
+    /// </summary>
+    /// <param name="loanKey">Ключ займа</param>
+    /// <param name="cancellationToken">Токен отмены</param>
+    /// <returns>Статус ci001 (0 = не отправлен, 1 = отправлен)</returns>
+    public Task<byte?> GetCi001StatusAsync(int loanKey, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Получить статус ci002 для конкретного займа (юр. лицо).
+    /// </summary>
+    /// <param name="loanKey">Ключ займа</param>
+    /// <param name="cancellationToken">Токен отмены</param>
+    /// <returns>Статус ci002 (0 = не отправлен, 1 = отправлен)</returns>
+    public Task<byte?> GetCi002StatusAsync(int loanKey, CancellationToken cancellationToken);
 }

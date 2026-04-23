@@ -112,8 +112,68 @@ namespace Application.CreditRegistration
         }
 
         public Task<CreditRegistrationEntityRequest?> GetCreditRegistrationEntityRequest(string keyAbsLoan, CancellationToken cancellationToken)
+            => GetCreditRegistrationEntityRequestInternal(keyAbsLoan, cancellationToken);
+
+        private async Task<CreditRegistrationEntityRequest?> GetCreditRegistrationEntityRequestInternal(string keyAbsLoanHistory, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            try
+            {
+                using var connect = new SqlConnection(_databaseSettings.DBConnection);
+                using var cmd = new SqlCommand(
+                    "select * from [dbo].[Report_KATM_002_Api](@keyAbsLoanHistory)",
+                    connect);
+                cmd.CommandType = System.Data.CommandType.Text;
+                cmd.Parameters.Clear();
+                cmd.Parameters.AddWithValue("@keyAbsLoanHistory", keyAbsLoanHistory);
+                await connect.OpenAsync(cancellationToken);
+                using var reader = cmd.ExecuteReader();
+                CreditRegistrationEntityRequest? creditRegistrationEntityRequest = null;
+                if (await reader.ReadAsync(cancellationToken))
+                {
+                    creditRegistrationEntityRequest = MapCreditRegistrationEntityRequest(reader);
+                }
+                await connect.CloseAsync();
+                return creditRegistrationEntityRequest;
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
+        private static CreditRegistrationEntityRequest MapCreditRegistrationEntityRequest(SqlDataReader reader)
+        {
+            return new CreditRegistrationEntityRequest()
+            {
+                ClaimId = reader["claimId"] is DBNull ? null : reader["claimId"].ToString(),
+                ClaimDate = reader["Date_in"] is DBNull ? null : reader["Date_in"].ToString(),
+                Inn = reader["N_National"] is DBNull ? null : reader["N_National"].ToString(),
+                ClaimNumber = reader["app_bank"] is DBNull ? null : reader["app_bank"].ToString(),
+                AgreementNumber = reader["app_bank2"] is DBNull ? null : reader["app_bank2"].ToString(),
+                AgreementDate = reader["Date_in2"] is DBNull ? null : reader["Date_in2"].ToString(),
+                Resident = reader["Resident"] is DBNull ? null : reader["Resident"].ToString(),
+                JuridicalStatus = reader["juridicalStatus"] is DBNull ? null : reader["juridicalStatus"].ToString(),
+                Nibbd = reader["ID"] is DBNull ? null : reader["ID"].ToString(),
+                ClientType = reader["Sector"] is DBNull ? null : reader["Sector"].ToString(),
+                Name = reader["First_name"] is DBNull ? null : reader["First_name"].ToString(),
+                LiveCadastr = reader["Cadastral_N"] is DBNull ? null : reader["Cadastral_N"].ToString(),
+                OwnerForm = reader["ownerForm"] is DBNull ? null : reader["ownerForm"].ToString(),
+                Goverment = reader["goverment"] is DBNull ? null : reader["goverment"].ToString(),
+                RegistrationRegion = reader["country_ID"] is DBNull ? null : reader["country_ID"].ToString(),
+                RegistrationDistrict = reader["region_ID"] is DBNull ? null : reader["region_ID"].ToString(),
+                RegistrationAddress = reader["Adress"] is DBNull ? null : reader["Adress"].ToString(),
+                Phone = reader["Tel"] is DBNull ? null : reader["Tel"].ToString(),
+                Hbranch = reader["hBranch"] is DBNull ? null : reader["hBranch"].ToString(),
+                Oked = reader["oked"] is DBNull ? null : reader["oked"].ToString(),
+                KatmSir = reader["KATMSIR"] is DBNull ? null : reader["KATMSIR"].ToString(),
+                Okpo = reader["okpo"] is DBNull ? null : reader["okpo"].ToString(),
+                CreditType = reader["Cod_loan"] is DBNull ? null : reader["Cod_loan"].ToString(),
+                Summa = reader["Summ"] is DBNull ? null : reader["Summ"].ToString(),
+                Procent = reader["Procent"] is DBNull ? null : Convert.ToDecimal(reader["Procent"]).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture),
+                CreditDuration = reader["CreditDuration"] is DBNull ? null : reader["CreditDuration"].ToString(),
+                CreditExemption = reader["CreditExemption"] is DBNull ? null : reader["CreditExemption"].ToString(),
+                Currency = reader["Curr"] is DBNull ? null : reader["Curr"].ToString()
+            };
         }
     }
 }

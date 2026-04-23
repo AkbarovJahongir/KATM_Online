@@ -913,7 +913,7 @@ public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : I
                 PPin = GetString(reader, "pPin"),                  // [ПИНФЛ] для физлиц
                 PTin = GetString(reader, "pTin"),                  // [ИНН] для юрлиц
                 PReportFormat = GetInt(reader, "pReportFormat") ?? 0, // [ФорматОтчёта]
-                PReportReason = GetString(reader, "pReportReason"),         // [ЦельИзучения] v9.15
+                PReportReason = GetInt(reader, "pReportReason") ?? 1,         // [ЦельИзучения] v9.15
                 PToken = GetString(reader, "pToken"),                // [KATM-SIR] если есть
             });
         }
@@ -968,6 +968,28 @@ public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : I
         await connection.CloseAsync();
     }
 
+    public async Task<byte?> GetCi001StatusAsync(int loanKey, CancellationToken cancellationToken)
+    {
+        using var connection = new SqlConnection(_databaseSettings.CIBConnection);
+        using var command = new SqlCommand("SELECT ci001 FROM [dbo].[Katm_Methods_Request] WHERE [loanKey] = @loanKey", connection);
+        command.Parameters.AddWithValue("@loanKey", loanKey);
+        await connection.OpenAsync(cancellationToken);
+        var result = await command.ExecuteScalarAsync(cancellationToken);
+        await connection.CloseAsync();
+        return result == DBNull.Value ? null : Convert.ToByte(result);
+    }
+
+    public async Task<byte?> GetCi002StatusAsync(int loanKey, CancellationToken cancellationToken)
+    {
+        using var connection = new SqlConnection(_databaseSettings.CIBConnection);
+        using var command = new SqlCommand("SELECT ci002 FROM [dbo].[Katm_Methods_Request] WHERE [loanKey] = @loanKey", connection);
+        command.Parameters.AddWithValue("@loanKey", loanKey);
+        await connection.OpenAsync(cancellationToken);
+        var result = await command.ExecuteScalarAsync(cancellationToken);
+        await connection.CloseAsync();
+        return result == DBNull.Value ? null : Convert.ToByte(result);
+    }
+
     private async Task<List<CreditBureauReportQueueItem<T>>> ExecuteTableFunctionAsync<T>(
         string functionName,
         Func<SqlDataReader, T> mapper,
@@ -997,7 +1019,6 @@ public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : I
     {
         return new CreditRegistrationIndividualRequest
         {
-            PHead = GetString(reader, "pHead", "head"),
             ClaimId = GetString(reader, "claimId"),
             ClaimDate = GetString(reader, "Date_in"),
             Inn = GetString(reader, "N_National"),
@@ -1040,7 +1061,6 @@ public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : I
     {
         return new CreditRegistrationEntityRequest
         {
-            PHead = GetString(reader, "pHead", "head"),
             ClaimId = GetString(reader, "claimId", "pClaimId", "claim_id"),
             ClaimDate = GetString(reader, "Date_in", "claimDate", "claim_date"),
             Inn = GetString(reader, "N_National", "inn", "pInn"),

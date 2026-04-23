@@ -55,6 +55,7 @@ public class Ci021PledgeSecurityRequestHandler : CiHandlerBase<CreditRegistratio
 
             try
             {
+                item.Request.PDate = FormatKatmIsoDateAtStartOfDay(DateTimeOffset.Now);
                 SetStandardFields(item.Request);
 
                 var baseRequest = CreateBaseRequest(item.Request);

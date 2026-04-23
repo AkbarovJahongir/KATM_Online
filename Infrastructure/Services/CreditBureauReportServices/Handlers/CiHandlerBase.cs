@@ -249,6 +249,11 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
     protected static string FormatKatmDate(DateTimeOffset dateTime) =>
         dateTime.ToString("dd.MM.yyyy HH:mm:ss");
 
+    protected static string FormatKatmIsoDateAtStartOfDay(DateTimeOffset dateTime)
+    {
+        return dateTime.ToString("yyyy-MM-ddTHH:mm:ss.fff+0500");
+    }
+
     /// <summary>
     /// Подготовка стандартного запроса
     /// </summary>

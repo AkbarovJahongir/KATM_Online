@@ -56,6 +56,7 @@ public class Ci016BankDetailRequestHandler : CiHandlerBase<CreditRegistrationBan
 
             try
             {
+                item.Request.PDate = FormatKatmIsoDateAtStartOfDay(DateTimeOffset.Now);
                 SetStandardFields(item.Request);
 
                 var baseRequest = CreateBaseRequest(item.Request);

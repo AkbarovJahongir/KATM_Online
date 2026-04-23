@@ -173,6 +173,7 @@ public class Ci015RepaymentRequestHandler : CiHandlerBase<CreditRegistrationRepa
 
             try
             {
+                item.Request.PDate = FormatKatmIsoDateAtStartOfDay(DateTimeOffset.Now);
                 SetStandardFields(item.Request);
 
                 var baseRequest = CreateBaseRequest(item.Request);

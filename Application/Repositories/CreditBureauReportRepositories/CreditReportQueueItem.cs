@@ -10,6 +10,6 @@ public class CreditReportQueueItem
     public string? PPin { get; set; }
     public string? PTin { get; set; }
     public int PReportFormat { get; set; }
-    public string? PReportReason { get; set; }
+    public int? PReportReason { get; set; }
     public string? PToken { get; set; } // KATM-SIR или polling-токен
 }

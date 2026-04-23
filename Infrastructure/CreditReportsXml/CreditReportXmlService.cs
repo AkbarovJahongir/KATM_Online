@@ -26,6 +26,7 @@ namespace Infrastructure.CreditReportsXml
         private readonly AsokiReportApiOptions _options = options;
         private readonly RequestSecurity _requestSecurity = requestSecurity;
         private readonly LogWriter _logWriter = logWriter;
+        private const string CreditReport017FullLogFile = "CreditReport017Full.txt";
         public async Task CreditReportXml(LoanApplication loanApplications, CancellationToken cancellationToken)
         {
             try
@@ -46,17 +47,26 @@ namespace Infrastructure.CreditReportsXml
                     PTin = loanApplications.PTin,
                     PHead = _options.PHead,
                     PCode = _options.PCode,
-                    PReportFormat = 0
+                    PReportFormat = 0,
+                    PReportReason = loanApplications.PReportReason
                 };
                 var request = new BaseRequest<CreditReportRequest>() { Data = creditReportRequest, Security = _requestSecurity };
+                var requestJson = request.ToJSON();
+                Console.WriteLine($"CI-017 XML Request. LoanKey:{loanApplications.KeyLoanHistoryKb} ClaimId:{loanApplications.PClaimId}\n{requestJson}");
+                _logWriter.Log(
+                    CreditReport017FullLogFile,
+                    $"Type: CI-017 XML Request\nKeyLoanHistoryKb: {loanApplications.KeyLoanHistoryKb}\nClaimId: {loanApplications.PClaimId}\n{requestJson}");
 
                 // Отправляем запрос
                 var response = await _requestManagerService.SendPostRequest(
                     _options.HostAddress + _options.ReportUrl,
-                    request.ToJSON(),
+                    requestJson,
                     loanApplications.KeyLoanHistoryKb,
                     IRequestManagerRepository.IsXml.Xml,
                     cancellationToken);
+                _logWriter.Log(
+                    CreditReport017FullLogFile,
+                    $"Type: CI-017 XML Response\nKeyLoanHistoryKb: {loanApplications.KeyLoanHistoryKb}\nClaimId: {loanApplications.PClaimId}\n{response}");
                 if (string.IsNullOrWhiteSpace(response))
                     return;
                 var baseResponse = JsonConvert.DeserializeObject<BaseResponse<CreditReportResponse>>(response);
@@ -143,15 +153,23 @@ namespace Infrastructure.CreditReportsXml
                     pToken = loanApplications.PToken!
                 };
                 var request = new BaseRequest<CreditReportStatusRequest>() { Data = creditReportStatusRequest, Security = _requestSecurity };
-                HttpContent content = new StringContent(request.ToJSON(), System.Text.Encoding.UTF8, "application/json");
-                _logWriter.Log("CreditReportStatusRequestXml.txt", $"KeyAbsLoan:ClaimId: {loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyLoanHistoryKb} - {DateTime.Now}\n\n" + request.ToJSON());
+                var requestJson = request.ToJSON();
+                HttpContent content = new StringContent(requestJson, System.Text.Encoding.UTF8, "application/json");
+                _logWriter.Log("CreditReportStatusRequestXml.txt", $"KeyAbsLoan:ClaimId: {loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyLoanHistoryKb} - {DateTime.Now}\n\n" + requestJson);
+                Console.WriteLine($"CI-017 XML Status Request. LoanKey:{loanApplications.KeyLoanHistoryKb} ClaimId:{loanApplications.PClaimId}\n{requestJson}");
+                _logWriter.Log(
+                    CreditReport017FullLogFile,
+                    $"Type: CI-017 XML Status Request\nKeyLoanHistoryKb: {loanApplications.KeyLoanHistoryKb}\nClaimId: {loanApplications.PClaimId}\n{requestJson}");
                 // Отправляем запрос
                 var response = await _requestManagerService.SendPostRequest(
                     _options.HostAddress + _options.ReportStatusUrl,
-                    request.ToJSON(),
+                    requestJson,
                     loanApplications.KeyLoanHistoryKb,
                     IRequestManagerRepository.IsXml.Xml,
                     cancellationToken);
+                _logWriter.Log(
+                    CreditReport017FullLogFile,
+                    $"Type: CI-017 XML Status Response\nKeyLoanHistoryKb: {loanApplications.KeyLoanHistoryKb}\nClaimId: {loanApplications.PClaimId}\n{response}");
                 if (string.IsNullOrWhiteSpace(response))
                     return;
                 var baseResponse = JsonConvert.DeserializeObject<BaseResponse<CreditReportStatusResponse>>(response);

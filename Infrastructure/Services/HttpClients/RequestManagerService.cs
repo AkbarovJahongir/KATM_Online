@@ -46,19 +46,34 @@ namespace Infrastructure.Services.HttpClients
 #pragma warning disable CS8602 // Разыменование вероятной пустой ссылки.
             request.Content.Headers.ContentType.CharSet = string.Empty;
 
-            _logWriter.Log("RequestManager.txt", request.ToJSON());
+            _logWriter.Log("RequestManager.txt", $"Key_RequestHistory:{KeyLoanHistoryKb} Request: {request.ToJSON()}");
+            _logWriter.Log("RequestManager.txt", $"Key_RequestHistory:{KeyLoanHistoryKb} RequestBody: {jsonData}");
             _logger.LogInformation(message: $"POST request value: {request}");
             DateTime dateRequest = DateTime.Now;
             var httpResponseMessage = await httpClient.SendAsync(request, cancellationToken);
             DateTime dateResponse = DateTime.Now;
-            _logWriter.Log("RequestManager.txt", httpResponseMessage.ToJSON());
+            var responseBody = httpResponseMessage.Content is null
+                ? string.Empty
+                : await httpResponseMessage.Content.ReadAsStringAsync(cancellationToken);
+
+            _logWriter.Log("RequestManager.txt", $"Key_RequestHistory:{KeyLoanHistoryKb} Response: {httpResponseMessage.ToJSON()}");
+            _logWriter.Log("RequestManager.txt", $"Key_RequestHistory:{KeyLoanHistoryKb} ResponseBody: {responseBody}");
 
             _logger.LogInformation(string.Format("POST Response status code is: {0}", httpResponseMessage.StatusCode));
 
 
             if (httpResponseMessage.StatusCode != HttpStatusCode.OK)
             {
-                _logWriter.Log("RequestManager.txt", string.Format("Key_RequestHistory:{0} External service API send {1} status code!", KeyLoanHistoryKb, httpResponseMessage.StatusCode));
+                _logWriter.Log(
+                    "RequestManager.txt",
+                    $"Key_RequestHistory:{KeyLoanHistoryKb} FailedRequestBody: {jsonData}\nFailedResponseBody: {responseBody}");
+                _logWriter.Log("RequestManager.txt", string.Format("Key_RequestHistory:{0} External service API send {1} status code! ResponseBody:{2}", KeyLoanHistoryKb, httpResponseMessage.StatusCode, responseBody));
+                Console.WriteLine(
+                    $"Key_RequestHistory:{KeyLoanHistoryKb} External service API send {httpResponseMessage.StatusCode} status code!\nRequestBody: {jsonData}\nResponseBody: {responseBody}");
+                await _telegramNotificationService.NotifyErrorAsync(
+                    "CI-017 request failed",
+                    $"Key_RequestHistory: {KeyLoanHistoryKb}\nStatusCode: {(int)httpResponseMessage.StatusCode} ({httpResponseMessage.StatusCode})\nUrl: {url}\nRequestBody: {jsonData}\nResponseBody: {responseBody}",
+                    cancellationToken);
                 await _repository.KatmHelper(KeyLoanHistoryKb, string.Format("Key_LoanHistoryKb:{0} External service API send {1} status code!", KeyLoanHistoryKb, httpResponseMessage.StatusCode), IHelperRepository.TypeOperation.Error, cancellationToken);
                 await _repository.KatmHelperXml(KeyLoanHistoryKb, string.Format("Key_LoanHistoryKb:{0} External service API send {1} status code!", KeyLoanHistoryKb, httpResponseMessage.StatusCode), IHelperRepository.TypeOperation.Error, cancellationToken);
                 return result;
@@ -66,13 +81,17 @@ namespace Infrastructure.Services.HttpClients
             if (httpResponseMessage.Content == null)
             {
                 _logWriter.Log("RequestManager.txt", string.Format("Key_RequestHistory:{0} Content object received from API is null!", KeyLoanHistoryKb));
+                await _telegramNotificationService.NotifyErrorAsync(
+                    "CI-017 empty response content",
+                    $"Key_RequestHistory: {KeyLoanHistoryKb}\nUrl: {url}\nRequestBody: {jsonData}",
+                    cancellationToken);
                 await _repository.KatmHelper(KeyLoanHistoryKb, string.Format("Key_LoanHistoryKb:{0} Content object received from API is null!", KeyLoanHistoryKb), IHelperRepository.TypeOperation.Error, cancellationToken);
                 await _repository.KatmHelperXml(KeyLoanHistoryKb, string.Format("Key_LoanHistoryKb:{0} Content object received from API is null!", KeyLoanHistoryKb), IHelperRepository.TypeOperation.Error, cancellationToken);
                 return result;
             }
             _logger.LogInformation(string.Format("POST Response value: {0}", httpResponseMessage));
 
-            string str2 = await httpResponseMessage.Content.ReadAsStringAsync(cancellationToken);
+            string str2 = responseBody;
 
             _logger.LogInformation("Content value received from External service API is " + str2);
             _logger.LogInformation("POST REQUEST FINISHED!");

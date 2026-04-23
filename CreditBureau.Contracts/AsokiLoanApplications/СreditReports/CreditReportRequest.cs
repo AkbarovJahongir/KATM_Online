@@ -26,7 +26,7 @@ namespace CreditBureau.Contracts.AsokiLoanApplications.СreditReports
         /// 1=мониторинг, 2=скоринг, 3=антифрод, 4=коллекшн
         /// </summary>
         [JsonProperty(PropertyName = "pReportReason")]
-        public string? PReportReason { get; set; }
+        public int? PReportReason { get; set; }
 
         [JsonProperty(PropertyName = "pPin")]
         public string? PPin { get; set; }
