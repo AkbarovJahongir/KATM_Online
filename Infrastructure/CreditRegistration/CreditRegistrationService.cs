@@ -1,6 +1,8 @@
-﻿using Application.CreditRegistration;
+using Application.CreditRegistration;
 using Application.Repositories.Helpers;
 using Application.Repositories.RequestManager;
+using Application.Repositories.AsokiRepositories;
+using Application.Repositories.CreditBureauReportRepositories;
 using CreditBureau.Contracts.AsokiLoanApplications;
 using CreditBureau.Contracts.AsokiLoanApplications.CreditRegistration.CreditApplications;
 using Domain.Common.Constants;
@@ -19,6 +21,8 @@ namespace Infrastructure.CreditRegistration
                                         LogWriter logWriter,
                                         AsokiApplicationApiOptions asokiApplicationApiOptions,
                                         IHelperRepository helperRepository,
+                                        IAsokiRepository asokiRepository,
+                                        ICreditBureauReportRepository creditBureauReportRepository,
                                         ILogger<CreditRegistrationService> logger) : ICreditRegistrationService
     {
         private readonly IHelperRepository _helperRepository = helperRepository;
@@ -27,57 +31,33 @@ namespace Infrastructure.CreditRegistration
         private readonly BankHeader _bankHeader = bankHeader;
         private readonly LogWriter _logWriter = logWriter;
         private readonly AsokiApplicationApiOptions _asokiApplicationApiOptions = asokiApplicationApiOptions;
+        private readonly IAsokiRepository _asokiRepository = asokiRepository;
+        private readonly ICreditBureauReportRepository _creditBureauReportRepository = creditBureauReportRepository;
         private readonly ILogger<CreditRegistrationService> _logger = logger;
         public async Task SenderClaimsAsync(LoanApplication loanApplications, CancellationToken cancellationToken)
         {
             _logWriter.Log("CreditRegistrationIndividual.txt", $"KeyAbsLoan:ClaimId:{loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyLoanHistoryKb} START");
-            if (loanApplications.ApplicationsSubjectType == "0")  // Физ. лицо
+            if (loanApplications.ApplicationsSubjectType == "0") // Физ. лицо
             {
-                var creditRegistrationIndividual = await _repository.GetCreditRegistrationIndividualRequest(loanApplications.KeyLoanHistoryKb, cancellationToken);
-                // если объект не найден
-                if (creditRegistrationIndividual == null)
+                if (int.TryParse(loanApplications.KeyLoanHistoryKb, out int loanKey))
                 {
-                    _logger.LogError("Method in SenderClaimsAsync GetCreditRegistrationIndividualRequest вернул null!");
-                    _logWriter.Log("CreditRegistrationIndividual.txt", "Method GetCreditRegistrationIndividualRequest вернул null!");
-                    _logWriter.EmergencyLog("EmergencyLog.txt", $"KeyAbsLoan:ClaimId:{loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyLoanHistoryKb}" + "Method GetCreditRegistrationIndividualRequest вернул null!");
-                    return;
-                }
-                var baseRequestForCredit = new BaseRequestForCreditApplications<CreditRegistrationIndividualRequest>() { Header = _bankHeader, Request = creditRegistrationIndividual };
-                try
-                {
-                    // Отправляем запрос
-                    var response = await _requestManagerService.SendPostRequest(
-                        _asokiApplicationApiOptions.HostAddress + _asokiApplicationApiOptions.IndividualPersonApplicationUrl,
-                        baseRequestForCredit.ToJSON(),
-                        loanApplications.KeyLoanHistoryKb,
-                        IRequestManagerRepository.IsXml.NotXml,
-                        cancellationToken);
-                    if (string.IsNullOrWhiteSpace(response))
-                        return;
-                    var baseResponse = JsonConvert.DeserializeObject<CreditRegistrationSubjectResponse>(response);
-                    // Успешно
-                    if (baseResponse?.Result?.Code is CreditBureauResultCodes.SUCCESS_00000 or CreditBureauResultCodes.SUCCESS_05000)
+                    var ci001Status = await _creditBureauReportRepository.GetCi001StatusAsync(loanKey, cancellationToken);
+                    if (ci001Status == 1)
                     {
-                        _logger.LogInformation(message: $"KeyAbsLoan:ClaimId:{loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyLoanHistoryKb} Update Table Response value:\\t" + baseResponse?.Response?.KatmSir);
-                        _logWriter.Log("CreditRegistrationIndividual.txt", $"KeyAbsLoan:ClaimId:{loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyLoanHistoryKb} Update Table Response value:\\t" + baseResponse?.Response?.KatmSir);
-                        await _helperRepository.KatmHelper(loanApplications.KeyLoanHistoryKb, baseResponse?.Response?.KatmSir ?? "_", IHelperRepository.TypeOperation.IndividualRequestSuccessful, cancellationToken);
+                        await _asokiRepository.UpdateRequestHistoryXmlStatusAsync(loanApplications.KeyLoanHistoryKb, "02", cancellationToken);
                     }
-                    else
-                    {
-                        _logger.LogError("Error: {0}", response);
-                        _logWriter.Log("CreditRegistrationIndividual.txt", string.Format("Error: {0}", response));
-                        await _helperRepository.KatmHelper(loanApplications.KeyLoanHistoryKb, baseResponse?.Result?.Message, IHelperRepository.TypeOperation.Error, cancellationToken);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logWriter.Log("CreditRegistrationIndividual.txt", "This Error In Catch Messages: " + ex.Message);
-                    return;
                 }
             }
-            else // Юр лицо
+            else
             {
-                //TODO
+                if (int.TryParse(loanApplications.KeyLoanHistoryKb, out int loanKey))
+                {
+                    var ci002Status = await _creditBureauReportRepository.GetCi002StatusAsync(loanKey, cancellationToken);
+                    if (ci002Status == 1)
+                    {
+                        await _asokiRepository.UpdateRequestHistoryXmlStatusAsync(loanApplications.KeyLoanHistoryKb, "02", cancellationToken);
+                    }
+                }
             }
             _logWriter.Log("CreditRegistrationIndividual.txt", $" END END\t");
         }
@@ -85,54 +65,27 @@ namespace Infrastructure.CreditRegistration
         public async Task SenderClaimsXmlAsync(LoanApplication loanApplications, CancellationToken cancellationToken)
         {
             _logWriter.Log("CreditRegistrationIndividualXml.txt", $"KeyAbsLoan:ClaimId:{loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyLoanHistoryKb} START");
-            if (loanApplications.ApplicationsSubjectType == "0")  // Физ. лицо
+            if (loanApplications.ApplicationsSubjectType == "0") // Физ. лицо
             {
-                var creditRegistrationIndividual = await _repository.GetCreditRegistrationIndividualRequest(loanApplications.KeyLoanHistoryKb, cancellationToken);
-                // если объект не найден
-                if (creditRegistrationIndividual == null)
-                {
-                    _logger.LogError("Method in SenderClaimsAsync GetCreditRegistrationIndividualRequest вернул null!");
-                    _logWriter.Log("CreditRegistrationIndividualXml.txt", "Method GetCreditRegistrationIndividualRequest вернул null!");
-                    _logWriter.EmergencyLog("EmergencyLog.txt", $"KeyAbsLoan:ClaimId:{loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyLoanHistoryKb}" + "Method GetCreditRegistrationIndividualRequest вернул null!");
-                    return;
-                }
-                var baseRequestForCredit = new BaseRequestForCreditApplications<CreditRegistrationIndividualRequest>() { Header = _bankHeader, Request = creditRegistrationIndividual };
-                try
-                {
-                    // Отправляем запрос
-                    var response = await _requestManagerService.SendPostRequest(
-                        _asokiApplicationApiOptions.HostAddress + _asokiApplicationApiOptions.IndividualPersonApplicationUrl,
-                        baseRequestForCredit.ToJSON(),
-                        loanApplications.KeyLoanHistoryKb,
-                        IRequestManagerRepository.IsXml.Xml,
-                        cancellationToken);
-                    if (string.IsNullOrWhiteSpace(response))
-                        return;
-                    var baseResponse = JsonConvert.DeserializeObject<CreditRegistrationSubjectResponse>(response);
-                    // Успешно
-                    if (baseResponse?.Result?.Code is CreditBureauResultCodes.SUCCESS_00000 or CreditBureauResultCodes.SUCCESS_05000)
-                    {
-                        _logger.LogInformation(message: $"KeyAbsLoan:ClaimId:{loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyLoanHistoryKb} Update Table Response value:\\t" + baseResponse?.Response?.KatmSir);
-                        _logWriter.Log("CreditRegistrationIndividualXml.txt", $"KeyAbsLoan:ClaimId:{loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyLoanHistoryKb} Update Table Response value:\\t" + baseResponse?.Response?.KatmSir);
-                        await _helperRepository.KatmHelperXml(loanApplications.KeyLoanHistoryKb, baseResponse?.Response?.KatmSir ?? "_", IHelperRepository.TypeOperation.IndividualRequestSuccessful, cancellationToken);
-                        _logWriter.Log("CreditRegistrationIndividualXml.txt", $"KeyAbsLoan:ClaimId:{loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyLoanHistoryKb} Success Response value:\\t" + baseResponse?.Response?.KatmSir);
-                    }
-                    else
-                    {
-                        _logger.LogError("Error: {0}", response);
-                        _logWriter.Log("CreditRegistrationIndividualXml.txt", string.Format("Error: {0}", response));
-                        await _helperRepository.KatmHelperXml(loanApplications.KeyLoanHistoryKb, baseResponse?.Result?.Message, IHelperRepository.TypeOperation.Error, cancellationToken);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logWriter.Log("CreditRegistrationIndividualXml.txt", "This Error In Catch Messages: " + ex.Message);
-                    return;
-                }
+                // if (int.TryParse(loanApplications.KeyLoanHistoryKb, out int loanKey))
+                // {
+                //     var ci001Status = await _creditBureauReportRepository.GetCi001StatusAsync(loanKey, cancellationToken);
+                //     if (ci001Status == 1)
+                //     {
+                        await _asokiRepository.UpdateRequestHistoryXmlStatusAsync(loanApplications.KeyLoanHistoryKb, "02", cancellationToken);
+                    //}
+                //}
             }
-            else // Юр лицо
+            else
             {
-                //TODO
+                if (int.TryParse(loanApplications.KeyLoanHistoryKb, out int loanKey))
+                {
+                    var ci002Status = await _creditBureauReportRepository.GetCi002StatusAsync(loanKey, cancellationToken);
+                    if (ci002Status == 1)
+                    {
+                        await _asokiRepository.UpdateRequestHistoryXmlStatusAsync(loanApplications.KeyLoanHistoryKb, "02", cancellationToken);
+                    }
+                }
             }
             _logWriter.Log("CreditRegistrationIndividual.txt", $" END END\t");
         }

@@ -3,7 +3,7 @@
 namespace CreditBureau.Contracts.AsokiLoanApplications.CreditRegistration.CreditApplications
 {
     public class CreditRegistrationIndividualRequest
-    {
+    { 
         [JsonProperty(PropertyName = "claim_id")]
         public string? ClaimId { get; set; }
         [JsonProperty(PropertyName = "claim_date")]
@@ -74,7 +74,7 @@ namespace CreditBureau.Contracts.AsokiLoanApplications.CreditRegistration.Credit
         public string? LiveCadastr { get; set; }
         [JsonProperty(PropertyName = "registration_cadastr")]
         public string? RegistrationCadastr { get; set; }
-        [JsonProperty(PropertyName = "method")]
-        public string? Method { get; set; } = "1";
+        [JsonProperty(PropertyName = "ci_method")]
+        public string? Method { get; set; } = "0";
     }
 }

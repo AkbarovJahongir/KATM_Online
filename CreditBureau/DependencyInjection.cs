@@ -1,4 +1,4 @@
-﻿using Application;
+using Application;
 using CreditBureau.Contracts.AsokiLoanApplications.CreditRegistration.CreditApplications;
 using CreditBureau.Contracts.Common;
 using Domain.Common.DbContext;
@@ -63,6 +63,12 @@ namespace CreditBureau
 
             services.AddHttpClient();
             Console.WriteLine("HttpClient добавлен");
+
+            var telegramNotificationSettings = new TelegramNotificationSettings();
+            configuration.Bind(nameof(TelegramNotificationSettings), telegramNotificationSettings);
+            services.AddSingleton(telegramNotificationSettings);
+            services.AddSingleton<GlobalExceptionNotifier>();
+            Console.WriteLine($"TelegramNotificationSettings зарегистрированы: Enabled={telegramNotificationSettings.Enabled}");
             // END Asoki Settings
 
             // Условная регистрация парсера по фичефлагу

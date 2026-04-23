@@ -1,5 +1,5 @@
-﻿using Domain.Common.DbContext;
-using System.Data.SqlClient;
+using Domain.Common.DbContext;
+using Microsoft.Data.SqlClient;
 using static Application.Repositories.Helpers.IHelperRepository;
 
 namespace Application.Repositories.Helpers

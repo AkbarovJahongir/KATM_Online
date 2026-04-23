@@ -1,7 +1,7 @@
-﻿using CreditBureau.Contracts.CreditReportParser;
+using CreditBureau.Contracts.CreditReportParser;
 using Domain.Common.DbContext;
+using Microsoft.Data.SqlClient;
 using System.Data;
-using System.Data.SqlClient;
 
 namespace Application.Repositories.CreditReportXmlParserRepositories;
 

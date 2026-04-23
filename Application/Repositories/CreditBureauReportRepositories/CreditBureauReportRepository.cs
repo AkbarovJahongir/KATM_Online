@@ -1,8 +1,8 @@
-﻿using CreditBureau.Contracts.AsokiLoanApplications.CreditRegistration.CreditAgreementsAndLeasing.Requests;
+using CreditBureau.Contracts.AsokiLoanApplications.CreditRegistration.CreditAgreementsAndLeasing.Requests;
 using CreditBureau.Contracts.AsokiLoanApplications.CreditRegistration.CreditApplications;
 using Domain.Common.DbContext;
+using Microsoft.Data.SqlClient;
 using System.Data;
-using System.Data.SqlClient;
 
 namespace Application.Repositories.CreditBureauReportRepositories;
 
@@ -556,6 +556,163 @@ public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : I
         return grouped.Values.ToList();
     }
 
+    public async Task<List<CreditBureauReportQueueItem<CreditRegistrationRepayment>>> GetCreditRegistrationRepaymentRequestsByPeriodAsync(DateTime startDate, DateTime endDate, int? loanKey, CancellationToken cancellationToken)
+    {
+        using var connection = new SqlConnection(_databaseSettings.DBConnection);
+        using var command = new SqlCommand("SELECT * FROM [dbo].[KATM_Report_015_ByPeriod](@StartDate, @EndDate, @LoanKey)", connection);
+        command.Parameters.AddWithValue("@StartDate", startDate.Date);
+        command.Parameters.AddWithValue("@EndDate", endDate.Date);
+        command.Parameters.AddWithValue("@LoanKey", loanKey.HasValue ? (object)loanKey.Value : DBNull.Value);
+
+        await connection.OpenAsync(cancellationToken);
+        using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
+        var result = new Dictionary<int, CreditBureauReportQueueItem<CreditRegistrationRepayment>>();
+
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var lk = GetInt(reader, "loanKey", "LoanKey", "keyLoanHistoryKb", "KeyLoanHistoryKb") ?? 0;
+
+            if (!result.ContainsKey(lk))
+            {
+                result[lk] = new CreditBureauReportQueueItem<CreditRegistrationRepayment>
+                {
+                    LoanKey = lk,
+                    Request = new CreditRegistrationRepayment
+                    {
+                        PHead = GetString(reader, "pHead", "head"),
+                        PCode = GetString(reader, "pCode", "code"),
+                        PContractId = GetString(reader, "pContractId"),
+                        PContractType = GetString(reader, "pContractType"),
+                        PDate = GetString(reader, "pDate"),
+                        PLoanStatus = GetString(reader, "pLoanStatus"),
+                        PRepaymentArray = new List<PRepaymentArray>()
+                    }
+                };
+            }
+
+            result[lk].Request.PRepaymentArray!.Add(new PRepaymentArray
+            {
+                Account = GetString(reader, "account", "Account"),
+                Date = GetString(reader, "date", "Date", "updateDate"),
+                StartBalance = GetDecimal(reader, "startBalance", "StartBalance"),
+                Debit = GetDecimal(reader, "debit", "Debit"),
+                Credit = GetDecimal(reader, "credit", "Credit"),
+                EndBalance = GetDecimal(reader, "endBalance", "EndBalance")
+            });
+        }
+
+        await connection.CloseAsync();
+
+        return result.Values.ToList();
+    }
+
+    public async Task<List<CreditBureauReportQueueItem<CreditRegistrationBankDitailRequest>>> GetCreditRegistrationBankDetailsRequestsByPeriodAsync(DateTime startDate, DateTime endDate, int? loanKey, CancellationToken cancellationToken)
+    {
+        using var connection = new SqlConnection(_databaseSettings.DBConnection);
+        using var command = new SqlCommand("SELECT * FROM [dbo].[KATM_Report_016_ByPeriod](@StartDate, @EndDate, @LoanKey)", connection);
+        command.Parameters.AddWithValue("@StartDate", startDate.Date);
+        command.Parameters.AddWithValue("@EndDate", endDate.Date);
+        command.Parameters.AddWithValue("@LoanKey", loanKey.HasValue ? (object)loanKey.Value : DBNull.Value);
+
+        await connection.OpenAsync(cancellationToken);
+
+        using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
+        var result = new Dictionary<int, CreditBureauReportQueueItem<CreditRegistrationBankDitailRequest>>();
+
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var lk = GetInt(reader, "Lkey") ?? 0;
+
+            if (!result.ContainsKey(lk))
+            {
+                result[lk] = new CreditBureauReportQueueItem<CreditRegistrationBankDitailRequest>
+                {
+                    LoanKey = lk,
+                    Request = new CreditRegistrationBankDitailRequest
+                    {
+                        PHead = GetString(reader, "Send_code"),
+                        PCode = GetString(reader, "Send_code"),
+                        PContractType = GetString(reader, "S_ASOKI_0A6"),
+                        PContractId = GetString(reader, "App_old"),
+                        PDate = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
+                        PRepaymentDetArray = new List<PRepaymentDetArray>()
+                    }
+                };
+            }
+
+            var accountA = GetString(reader, "Account_db");
+            var accountB = GetString(reader, "Account_kr");
+
+            result[lk].Request.PRepaymentDetArray!.Add(new PRepaymentDetArray
+            {
+                AccountA = accountA,
+                AccountB = accountB,
+                BranchA = GetString(reader, "Send_code"),
+                BranchB = GetString(reader, "Reciver_code"),
+                CoaA = accountA?.Length >= 5 ? accountA.Substring(0, 5) : accountA,
+                CoaB = accountB?.Length >= 5 ? accountB.Substring(0, 5) : accountB,
+                Currency = GetString(reader, "Curr_db"),
+                Destination = GetString(reader, "CB_60"),
+                DocDate = GetString(reader, "Date_trans"),
+                DocNum = GetString(reader, "N_doc"),
+                DocType = GetString(reader, "UZ_s026"),
+                NameA = GetString(reader, "Send_name"),
+                NameB = GetString(reader, "Reciver_name"),
+                PayType = GetString(reader, "UZ_s004"),
+                PaymentId = GetString(reader, "transKey"),
+                Purpose = GetString(reader, "Purpose"),
+                Summa = GetDecimal(reader, "Sum_NV_db")
+            });
+        }
+
+        await connection.CloseAsync();
+
+        return result.Values.ToList();
+    }
+
+    public async Task<List<CreditBureauReportQueueItem<CreditRegistrationAccountStatus>>> GetAccountStatusRequestsByPeriodAsync(DateTime startDate, DateTime endDate, int? loanKey, CancellationToken cancellationToken)
+    {
+        using var connection = new SqlConnection(_databaseSettings.DBConnection);
+        using var command = new SqlCommand("SELECT * FROM [dbo].[KATM_Report_018_ByPeriod](@StartDate, @EndDate, @LoanKey)", connection);
+        command.Parameters.AddWithValue("@StartDate", startDate.Date);
+        command.Parameters.AddWithValue("@EndDate", endDate.Date);
+        command.Parameters.AddWithValue("@LoanKey", loanKey.HasValue ? (object)loanKey.Value : DBNull.Value);
+
+        await connection.OpenAsync(cancellationToken);
+        using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
+        var grouped = new Dictionary<int, CreditBureauReportQueueItem<CreditRegistrationAccountStatus>>();
+
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var lk = GetInt(reader, "loanKey") ?? 0;
+
+            if (!grouped.TryGetValue(lk, out var queueItem))
+            {
+                queueItem = new CreditBureauReportQueueItem<CreditRegistrationAccountStatus>
+                {
+                    LoanKey = lk,
+                    Request = new CreditRegistrationAccountStatus
+                    {
+                        PContractId = GetString(reader, "App_old"),       // [УникальныйНомерДоговора]
+                        PContractType = GetString(reader, "S_ASOKI_0A6"),   // [КодТипаДоговора]
+                        PAccountStatusesArray = new List<AccountStatusItem>()
+                    }
+                };
+                grouped[lk] = queueItem;
+            }
+
+            var item = MapAccountStatusItem(reader);
+            if (item is not null)
+                queueItem.Request.PAccountStatusesArray!.Add(item);
+        }
+
+        await connection.CloseAsync();
+        return grouped.Values.ToList();
+    }
+
     public async Task<List<CreditBureauReportQueueItem<CreditRegistrationLeasingRequest>>>
         GetCreditRegistrationLeasingRequestsAsync(CancellationToken cancellationToken)
     {
@@ -756,7 +913,7 @@ public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : I
                 PPin = GetString(reader, "pPin"),                  // [ПИНФЛ] для физлиц
                 PTin = GetString(reader, "pTin"),                  // [ИНН] для юрлиц
                 PReportFormat = GetInt(reader, "pReportFormat") ?? 0, // [ФорматОтчёта]
-                PReportReason = GetString(reader, "pReportReason"),         // [ЦельИзучения] v9.15
+                PReportReason = GetInt(reader, "pReportReason") ?? 1,         // [ЦельИзучения] v9.15
                 PToken = GetString(reader, "pToken"),                // [KATM-SIR] если есть
             });
         }
@@ -809,6 +966,28 @@ public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : I
         await connection.OpenAsync(cancellationToken);
         await command.ExecuteNonQueryAsync(cancellationToken);
         await connection.CloseAsync();
+    }
+
+    public async Task<byte?> GetCi001StatusAsync(int loanKey, CancellationToken cancellationToken)
+    {
+        using var connection = new SqlConnection(_databaseSettings.CIBConnection);
+        using var command = new SqlCommand("SELECT ci001 FROM [dbo].[Katm_Methods_Request] WHERE [loanKey] = @loanKey", connection);
+        command.Parameters.AddWithValue("@loanKey", loanKey);
+        await connection.OpenAsync(cancellationToken);
+        var result = await command.ExecuteScalarAsync(cancellationToken);
+        await connection.CloseAsync();
+        return result == DBNull.Value ? null : Convert.ToByte(result);
+    }
+
+    public async Task<byte?> GetCi002StatusAsync(int loanKey, CancellationToken cancellationToken)
+    {
+        using var connection = new SqlConnection(_databaseSettings.CIBConnection);
+        using var command = new SqlCommand("SELECT ci002 FROM [dbo].[Katm_Methods_Request] WHERE [loanKey] = @loanKey", connection);
+        command.Parameters.AddWithValue("@loanKey", loanKey);
+        await connection.OpenAsync(cancellationToken);
+        var result = await command.ExecuteScalarAsync(cancellationToken);
+        await connection.CloseAsync();
+        return result == DBNull.Value ? null : Convert.ToByte(result);
     }
 
     private async Task<List<CreditBureauReportQueueItem<T>>> ExecuteTableFunctionAsync<T>(

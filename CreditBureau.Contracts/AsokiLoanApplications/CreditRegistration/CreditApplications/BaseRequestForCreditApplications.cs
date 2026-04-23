@@ -18,5 +18,8 @@ namespace CreditBureau.Contracts.AsokiLoanApplications.CreditRegistration.Credit
         public string? Type { get; set; }
         [JsonProperty(PropertyName = "code")]
         public string? Code { get; set; }
+        [JsonProperty(PropertyName = "head")]
+        public string? Head { get; set; }
+        
     }
 }
