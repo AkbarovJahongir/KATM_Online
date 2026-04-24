@@ -1,5 +1,5 @@
-using CreditBureau.Contracts.AsokiLoanApplications.CreditRegistration.CreditAgreementsAndLeasing.Requests;
-using CreditBureau.Contracts.AsokiLoanApplications.CreditRegistration.CreditApplications;
+using CreditBureauService.Contracts.CreditBureauApplications.CreditRegistration.CreditAgreementsAndLeasing.Requests;
+using CreditBureauService.Contracts.CreditBureauApplications.CreditRegistration.CreditApplications;
 
 namespace Application.Repositories.CreditBureauReportRepositories;
 
@@ -240,18 +240,18 @@ public interface ICreditBureauReportRepository
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Получить статус ci001 для конкретного займа (физ. лицо).
+    /// Получить статус CreditBureau001 для конкретного займа (физ. лицо).
     /// </summary>
     /// <param name="loanKey">Ключ займа</param>
     /// <param name="cancellationToken">Токен отмены</param>
-    /// <returns>Статус ci001 (0 = не отправлен, 1 = отправлен)</returns>
-    public Task<byte?> GetCi001StatusAsync(int loanKey, CancellationToken cancellationToken);
+    /// <returns>Статус CreditBureau001 (0 = не отправлен, 1 = отправлен)</returns>
+    public Task<byte?> GetCreditBureau001StatusAsync(int loanKey, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Получить статус ci002 для конкретного займа (юр. лицо).
+    /// Получить статус CreditBureau002 для конкретного займа (юр. лицо).
     /// </summary>
     /// <param name="loanKey">Ключ займа</param>
     /// <param name="cancellationToken">Токен отмены</param>
-    /// <returns>Статус ci002 (0 = не отправлен, 1 = отправлен)</returns>
-    public Task<byte?> GetCi002StatusAsync(int loanKey, CancellationToken cancellationToken);
+    /// <returns>Статус CreditBureau002 (0 = не отправлен, 1 = отправлен)</returns>
+    public Task<byte?> GetCreditBureau002StatusAsync(int loanKey, CancellationToken cancellationToken);
 }

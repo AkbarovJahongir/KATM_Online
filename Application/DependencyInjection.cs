@@ -1,6 +1,6 @@
 using Application.CreditRegistration;
 using Application.CreditReports;
-using Application.Repositories.AsokiRepositories;
+using Application.Repositories.CreditBureauRepositories;
 using Application.Repositories.CreditBureauReportRepositories;
 using Application.Repositories.CreditReportXmlParserRepositories;
 using Application.Repositories.Helpers;
@@ -17,7 +17,7 @@ public static class DependencyInjection
         services.AddSingleton<ICreditRegistrationRepository, CreditRegistrationRepository>();
         services.AddSingleton<IRequestManagerRepository, RequestManagerRepository>();
         services.AddSingleton<IHelperRepository, HelperRepository>();
-        services.AddSingleton<IAsokiRepository, AsokiRepository>();
+        services.AddSingleton<ICreditBureauRepository, CreditBureauRepository>();
         services.AddSingleton<ICreditReportXmlParserRepository, CreditReportXmlParserRepository>();
         services.AddSingleton<ICreditBureauReportRepository, CreditBureauReportRepository>();
     }

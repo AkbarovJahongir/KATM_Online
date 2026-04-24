@@ -1,5 +1,5 @@
-﻿
-using CreditBureau.Contracts.AsokiLoanApplications;
+
+using CreditBureauService.Contracts.CreditBureauApplications;
 
 namespace Infrastructure.CreditReportsXml
 {

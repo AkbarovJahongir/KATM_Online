@@ -1,14 +1,14 @@
-using CreditBureau.Contracts.AsokiLoanApplications.CreditRegistration.CreditAgreementsAndLeasing.Requests;
-using CreditBureau.Contracts.AsokiLoanApplications.CreditRegistration.CreditAgreementsAndLeasing.Responses;
-using CreditBureau.Contracts.Common;
+using CreditBureauService.Contracts.CreditBureauApplications.CreditRegistration.CreditAgreementsAndLeasing.Requests;
+using CreditBureauService.Contracts.CreditBureauApplications.CreditRegistration.CreditAgreementsAndLeasing.Responses;
+using CreditBureauService.Contracts.Common;
 using Domain.Common.Constants;
 using Domain.Common.Settings;
 using Infrastructure.Common.Helpers.JsonHelpes;
 using Infrastructure.Common.Helpers.Logger;
 using Infrastructure.Services.Notifications;
 using Microsoft.Extensions.Logging;
-using BankHeader = CreditBureau.Contracts.AsokiLoanApplications.CreditRegistration.CreditApplications.BankHeader;
-using RequestSecurity = CreditBureau.Contracts.Common.RequestSecurity;
+using BankHeader = CreditBureauService.Contracts.CreditBureauApplications.CreditRegistration.CreditApplications.BankHeader;
+using RequestSecurity = CreditBureauService.Contracts.Common.RequestSecurity;
 
 namespace Infrastructure.Services.CreditBureauReportServices.Handlers;
 
@@ -20,14 +20,14 @@ public class Ci016BankDetailRequestHandler : CiHandlerBase<CreditRegistrationBan
     public Ci016BankDetailRequestHandler(
         Application.Repositories.CreditBureauReportRepositories.ICreditBureauReportRepository creditBureauReportRepository,
         HttpClients.IRequestManagerService requestManagerService,
-        Domain.Common.Settings.AsokiReportApiOptions asokiReportApiOptions,
-        Domain.Common.Settings.AsokiApplicationApiOptions asokiApplicationApiOptions,
+        Domain.Common.Settings.CreditBureauReportApiOptions CreditBureauReportApiOptions,
+        Domain.Common.Settings.CreditBureauApiOptions CreditBureauApiOptions,
         RequestSecurity requestSecurity,
         BankHeader bankHeader,
         Common.Helpers.Logger.LogWriter logWriter,
         ITelegramNotificationService telegramNotificationService,
         ILogger<Ci016BankDetailRequestHandler> logger)
-        : base(creditBureauReportRepository, requestManagerService, asokiReportApiOptions, asokiApplicationApiOptions, requestSecurity, bankHeader, logWriter, telegramNotificationService, logger)
+        : base(creditBureauReportRepository, requestManagerService, CreditBureauReportApiOptions, CreditBureauApiOptions, requestSecurity, bankHeader, logWriter, telegramNotificationService, logger)
     {
     }
 
@@ -62,7 +62,7 @@ public class Ci016BankDetailRequestHandler : CiHandlerBase<CreditRegistrationBan
                 var baseRequest = CreateBaseRequest(item.Request);
 
                 var response = await RequestManagerService.SendPostRequest(
-                    AsokiApplicationApiOptions.HostAddress + AsokiApplicationApiOptions.CreditRegistrationRepaymentBankDitailUrl,
+                    CreditBureauApiOptions.HostAddress + CreditBureauApiOptions.CreditRegistrationRepaymentBankDitailUrl,
                     baseRequest.ToJSON(),
                     item.LoanKey,
                     cancellationToken);
@@ -179,7 +179,7 @@ public class Ci016BankDetailRequestHandler : CiHandlerBase<CreditRegistrationBan
                 var baseRequest = CreateBaseRequest(item.Request);
 
                 var response = await RequestManagerService.SendPostRequest(
-                    AsokiApplicationApiOptions.HostAddress + AsokiApplicationApiOptions.CreditRegistrationRepaymentBankDitailUrl,
+                    CreditBureauApiOptions.HostAddress + CreditBureauApiOptions.CreditRegistrationRepaymentBankDitailUrl,
                     baseRequest.ToJSON(),
                     item.LoanKey,
                     cancellationToken);
@@ -261,3 +261,7 @@ public class Ci016BankDetailRequestHandler : CiHandlerBase<CreditRegistrationBan
         return result;
     }
 }
+
+
+
+

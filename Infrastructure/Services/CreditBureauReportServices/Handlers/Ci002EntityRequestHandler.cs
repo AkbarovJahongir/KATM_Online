@@ -1,5 +1,5 @@
 using Application.Repositories.CreditBureauReportRepositories;
-using CreditBureau.Contracts.AsokiLoanApplications.CreditRegistration.CreditApplications;
+using CreditBureauService.Contracts.CreditBureauApplications.CreditRegistration.CreditApplications;
 using Domain.Common.Constants;
 using Domain.Common.Settings;
 using Infrastructure.Common.Helpers.JsonHelpes;
@@ -7,8 +7,8 @@ using Infrastructure.Common.Helpers.Logger;
 using Infrastructure.Services.HttpClients;
 using Infrastructure.Services.Notifications;
 using Microsoft.Extensions.Logging;
-using BankHeader = CreditBureau.Contracts.AsokiLoanApplications.CreditRegistration.CreditApplications.BankHeader;
-using RequestSecurity = CreditBureau.Contracts.Common.RequestSecurity;
+using BankHeader = CreditBureauService.Contracts.CreditBureauApplications.CreditRegistration.CreditApplications.BankHeader;
+using RequestSecurity = CreditBureauService.Contracts.Common.RequestSecurity;
 
 namespace Infrastructure.Services.CreditBureauReportServices.Handlers;
 
@@ -20,14 +20,14 @@ public class Ci002EntityRequestHandler : CiHandlerBase<CreditRegistrationEntityR
     public Ci002EntityRequestHandler(
         ICreditBureauReportRepository creditBureauReportRepository,
         IRequestManagerService requestManagerService,
-        AsokiReportApiOptions asokiReportApiOptions,
-        AsokiApplicationApiOptions asokiApplicationApiOptions,
+        CreditBureauReportApiOptions CreditBureauReportApiOptions,
+        CreditBureauApiOptions CreditBureauApiOptions,
         RequestSecurity requestSecurity,
         BankHeader bankHeader,
         LogWriter logWriter,
         ITelegramNotificationService telegramNotificationService,
         ILogger<Ci002EntityRequestHandler> logger)
-        : base(creditBureauReportRepository, requestManagerService, asokiReportApiOptions, asokiApplicationApiOptions, requestSecurity, bankHeader, logWriter, telegramNotificationService, logger)
+        : base(creditBureauReportRepository, requestManagerService, CreditBureauReportApiOptions, CreditBureauApiOptions, requestSecurity, bankHeader, logWriter, telegramNotificationService, logger)
     {
     }
 
@@ -65,7 +65,7 @@ public class Ci002EntityRequestHandler : CiHandlerBase<CreditRegistrationEntityR
                 };
 
                 var response = await RequestManagerService.SendPostRequest(
-                    AsokiApplicationApiOptions.HostAddress + AsokiApplicationApiOptions.LegalEntityApplicationUrl,
+                    CreditBureauApiOptions.HostAddress + CreditBureauApiOptions.LegalEntityApplicationUrl,
                     baseRequest.ToJSON(),
                     item.LoanKey,
                     cancellationToken);
@@ -143,3 +143,7 @@ public class Ci002EntityRequestHandler : CiHandlerBase<CreditRegistrationEntityR
         return result;
     }
 }
+
+
+
+

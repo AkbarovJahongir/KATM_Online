@@ -1,5 +1,5 @@
-using CreditBureau.Contracts.AsokiLoanApplications.CreditRegistration;
-using CreditBureau.Contracts.AsokiLoanApplications.CreditRegistration.CreditApplications;
+using CreditBureauService.Contracts.CreditBureauApplications.CreditRegistration;
+using CreditBureauService.Contracts.CreditBureauApplications.CreditRegistration.CreditApplications;
 using Domain.Common.DbContext;
 using Microsoft.Data.SqlClient;
 
@@ -25,7 +25,7 @@ namespace Application.CreditRegistration
             {
                 resultData.Add(new RequestHistoryData()
                 {
-                    KeyLoanHistoryKb = reader["keyLoanHistoryKb"].ToString()!,
+                    KeyCreditBureauKb = reader["keyLoanHistoryKb"].ToString()!,
                     PClaimId = reader["pClaimId"].ToString()!,
                     ApplicationsSubjectType = reader["ApplicationsSubjectType"].ToString()!, // Тип если 0 то физ лицо если 1 то юр лицо
                     Status = reader["status"] is DBNull ? null : reader["status"].ToString(),

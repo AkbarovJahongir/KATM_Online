@@ -1,8 +1,8 @@
-﻿using Application.Repositories.Helpers;
+using Application.Repositories.Helpers;
 using Application.Repositories.RequestManager;
-using CreditBureau.Contracts.AsokiLoanApplications;
-using CreditBureau.Contracts.AsokiLoanApplications.СreditReports;
-using CreditBureau.Contracts.Common;
+using CreditBureauService.Contracts.CreditBureauApplications;
+using CreditBureauService.Contracts.CreditBureauApplications.CreditReports;
+using CreditBureauService.Contracts.Common;
 using Domain.Common.Constants;
 using Domain.Common.Settings;
 using Infrastructure.Common.Helpers.JsonHelpes;
@@ -14,14 +14,14 @@ namespace Infrastructure.CreditReports
 {
     public class CreditReportService(
         IRequestManagerService requestManagerService,
-        AsokiReportApiOptions options,
+        CreditBureauReportApiOptions options,
         RequestSecurity requestSecurity,
         LogWriter logWriter,
         IHelperRepository helperRepository) : ICreditReportService
     {
         private readonly IHelperRepository _helperRepository = helperRepository;
         private readonly IRequestManagerService _requestManagerService = requestManagerService;
-        private readonly AsokiReportApiOptions _options = options;
+        private readonly CreditBureauReportApiOptions _options = options;
         private readonly RequestSecurity _requestSecurity = requestSecurity;
         private readonly LogWriter _logWriter = logWriter;
         private const string CreditReport017FullLogFile = "CreditReport017Full.txt";
@@ -31,7 +31,7 @@ namespace Infrastructure.CreditReports
             {
                 if (loanApplications.QuantitySelected >= 5)
                 {
-                    await _helperRepository.KatmHelper(loanApplications.KeyLoanHistoryKb, "Запрос был отправлени больше 5 раз и не был правильно обработан!", IHelperRepository.TypeOperation.Error, cancellationToken);
+                    await _helperRepository.KatmHelper(loanApplications.KeyCreditBureauKb, "Запрос был отправлени больше 5 раз и не был правильно обработан!", IHelperRepository.TypeOperation.Error, cancellationToken);
                     return;
                 }
                 // подготавливаем запрос
@@ -50,25 +50,25 @@ namespace Infrastructure.CreditReports
                 };
                 var request = new BaseRequest<CreditReportRequest>() { Data = creditReportRequest, Security = _requestSecurity };
                 var requestJson = request.ToJSON();
-                Console.WriteLine($"CI-017 Request. LoanKey:{loanApplications.KeyLoanHistoryKb} ClaimId:{loanApplications.PClaimId}\n{requestJson}");
+                Console.WriteLine($"CI-017 Request. LoanKey:{loanApplications.KeyCreditBureauKb} ClaimId:{loanApplications.PClaimId}\n{requestJson}");
                 _logWriter.Log(
                     CreditReport017FullLogFile,
-                    $"Type: CI-017 Request\nKeyLoanHistoryKb: {loanApplications.KeyLoanHistoryKb}\nClaimId: {loanApplications.PClaimId}\n{requestJson}");
+                    $"Type: CI-017 Request\nKeyLoanHistoryKb: {loanApplications.KeyCreditBureauKb}\nClaimId: {loanApplications.PClaimId}\n{requestJson}");
 
                 // Отправляем запрос
                 var response = await _requestManagerService.SendPostRequest(
                     _options.HostAddress + _options.ReportUrl,
                     requestJson,
-                    loanApplications.KeyLoanHistoryKb,
+                    loanApplications.KeyCreditBureauKb,
                     IRequestManagerRepository.IsXml.NotXml,
                     cancellationToken);
                 _logWriter.Log(
                     CreditReport017FullLogFile,
-                    $"Type: CI-017 Response\nKeyLoanHistoryKb: {loanApplications.KeyLoanHistoryKb}\nClaimId: {loanApplications.PClaimId}\n{response}");
+                    $"Type: CI-017 Response\nKeyLoanHistoryKb: {loanApplications.KeyCreditBureauKb}\nClaimId: {loanApplications.PClaimId}\n{response}");
                 if (string.IsNullOrWhiteSpace(response))
                     return;
                 var baseResponse = JsonConvert.DeserializeObject<BaseResponse<CreditReportResponse>>(response);
-                _logWriter.Log("CreditReportResponse.txt", $"KeyAbsLoan:ClaimId: {loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyLoanHistoryKb} - {DateTime.Now}\n\n" + baseResponse?.ToJSON());
+                _logWriter.Log("CreditReportResponse.txt", $"KeyAbsLoan:ClaimId: {loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyCreditBureauKb} - {DateTime.Now}\n\n" + baseResponse?.ToJSON());
                 // Проверяем запрос
                 // Код ответа(05000 - успешно)
                 if (baseResponse?.data?.result == CreditBureauResultCodes.SUCCESS_05000)
@@ -76,7 +76,7 @@ namespace Infrastructure.CreditReports
                     // Сохраняем в базу данных Base64
                     try
                     {
-                        await _helperRepository.KatmHelper(loanApplications.KeyLoanHistoryKb, baseResponse.data.reportBase64, IHelperRepository.TypeOperation.Base64, cancellationToken);
+                        await _helperRepository.KatmHelper(loanApplications.KeyCreditBureauKb, baseResponse.data.reportBase64, IHelperRepository.TypeOperation.Base64, cancellationToken);
                     }
                     catch (Exception ex)
                     {
@@ -92,7 +92,7 @@ namespace Infrastructure.CreditReports
                     if (!string.IsNullOrEmpty(baseResponse.data.token))
                     {
                         // сохраняем токен
-                        await _helperRepository.KatmHelper(loanApplications.KeyLoanHistoryKb, baseResponse.data.token, IHelperRepository.TypeOperation.Token, cancellationToken);
+                        await _helperRepository.KatmHelper(loanApplications.KeyCreditBureauKb, baseResponse.data.token, IHelperRepository.TypeOperation.Token, cancellationToken);
                         return;
                     }
                 }
@@ -102,23 +102,23 @@ namespace Infrastructure.CreditReports
                     // Проверяем токен если токен не существует то записываем ошибку
                     if (string.IsNullOrEmpty(baseResponse.data.token))
                     {
-                        await _helperRepository.KatmHelper(loanApplications.KeyLoanHistoryKb, "Заявка не найдена!", IHelperRepository.TypeOperation.Error, cancellationToken);
+                        await _helperRepository.KatmHelper(loanApplications.KeyCreditBureauKb, "Заявка не найдена!", IHelperRepository.TypeOperation.Error, cancellationToken);
                         return;
                     }
                 }
                 else if (baseResponse?.data?.result == CreditBureauResultCodes.IDENTICAL_REQUEST)
                 {
-                    await _helperRepository.KatmHelper(loanApplications.KeyLoanHistoryKb, 5.ToJSON(), IHelperRepository.TypeOperation.AddNextAccess, cancellationToken);
+                    await _helperRepository.KatmHelper(loanApplications.KeyCreditBureauKb, 5.ToJSON(), IHelperRepository.TypeOperation.AddNextAccess, cancellationToken);
                 }
                 else if (baseResponse?.data?.result == CreditBureauResultCodes.FREEZE_SERVICE_ACTIVE)
                 {
-                    await _helperRepository.KatmHelper(loanApplications.KeyLoanHistoryKb, "Субъект не дает согласия на получение кредитной истории, подключена услуга Freeze. Субъекту необходимо отключить услугу Freeze.", IHelperRepository.TypeOperation.Error, cancellationToken);
+                    await _helperRepository.KatmHelper(loanApplications.KeyCreditBureauKb, "Субъект не дает согласия на получение кредитной истории, подключена услуга Freeze. Субъекту необходимо отключить услугу Freeze.", IHelperRepository.TypeOperation.Error, cancellationToken);
                 }
             }
             catch (Exception ex)
             {
                 // Обработка ошибку если Попытка установить соединение была безуспешной, т.к.
-                _logWriter.Log("CreditReportCatch.txt", $"KeyAbsLoan:ClaimId: {loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyLoanHistoryKb} - {DateTime.Now}\n\n" + ex.Message);
+                _logWriter.Log("CreditReportCatch.txt", $"KeyAbsLoan:ClaimId: {loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyCreditBureauKb} - {DateTime.Now}\n\n" + ex.Message);
                 return;
             }
         }
@@ -128,7 +128,7 @@ namespace Infrastructure.CreditReports
             {
                 if (loanApplications.QuantitySelected >= 5)
                 {
-                    await _helperRepository.KatmHelper(loanApplications.KeyLoanHistoryKb, "Запрос был отправлени больше 5 раз и не был правильно обработан!", IHelperRepository.TypeOperation.Error, cancellationToken);
+                    await _helperRepository.KatmHelper(loanApplications.KeyCreditBureauKb, "Запрос был отправлени больше 5 раз и не был правильно обработан!", IHelperRepository.TypeOperation.Error, cancellationToken);
                     return;
                 }
                 // подготавливаем запрос
@@ -143,43 +143,43 @@ namespace Infrastructure.CreditReports
                 var request = new BaseRequest<CreditReportStatusRequest>() { Data = creditReportStatusRequest, Security = _requestSecurity };
                 var requestJson = request.ToJSON();
                 HttpContent content = new StringContent(requestJson, System.Text.Encoding.UTF8, "application/json");
-                _logWriter.Log("CreditReportStatusRequest.txt", $"KeyAbsLoan:ClaimId: {loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyLoanHistoryKb} - {DateTime.Now}\n\n" + requestJson);
-                Console.WriteLine($"CI-017 Status Request. LoanKey:{loanApplications.KeyLoanHistoryKb} ClaimId:{loanApplications.PClaimId}\n{requestJson}");
+                _logWriter.Log("CreditReportStatusRequest.txt", $"KeyAbsLoan:ClaimId: {loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyCreditBureauKb} - {DateTime.Now}\n\n" + requestJson);
+                Console.WriteLine($"CI-017 Status Request. LoanKey:{loanApplications.KeyCreditBureauKb} ClaimId:{loanApplications.PClaimId}\n{requestJson}");
                 _logWriter.Log(
                     CreditReport017FullLogFile,
-                    $"Type: CI-017 Status Request\nKeyLoanHistoryKb: {loanApplications.KeyLoanHistoryKb}\nClaimId: {loanApplications.PClaimId}\n{requestJson}");
+                    $"Type: CI-017 Status Request\nKeyLoanHistoryKb: {loanApplications.KeyCreditBureauKb}\nClaimId: {loanApplications.PClaimId}\n{requestJson}");
                 // Отправляем запрос
                 var response = await _requestManagerService.SendPostRequest(
                     _options.HostAddress + _options.ReportStatusUrl,
                     requestJson,
-                    loanApplications.KeyLoanHistoryKb,
+                    loanApplications.KeyCreditBureauKb,
                     IRequestManagerRepository.IsXml.NotXml,
                     cancellationToken);
                 _logWriter.Log(
                     CreditReport017FullLogFile,
-                    $"Type: CI-017 Status Response\nKeyLoanHistoryKb: {loanApplications.KeyLoanHistoryKb}\nClaimId: {loanApplications.PClaimId}\n{response}");
+                    $"Type: CI-017 Status Response\nKeyLoanHistoryKb: {loanApplications.KeyCreditBureauKb}\nClaimId: {loanApplications.PClaimId}\n{response}");
                 if (string.IsNullOrWhiteSpace(response))
                     return;
                 var baseResponse = JsonConvert.DeserializeObject<BaseResponse<CreditReportStatusResponse>>(response);
-                _logWriter.Log("CreditReportStatusResponse.txt", $"KeyAbsLoan:ClaimId: {loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyLoanHistoryKb} - {DateTime.Now}\n\n" + baseResponse?.ToJSON());
+                _logWriter.Log("CreditReportStatusResponse.txt", $"KeyAbsLoan:ClaimId: {loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyCreditBureauKb} - {DateTime.Now}\n\n" + baseResponse?.ToJSON());
 
                 if (baseResponse.data.result == CreditBureauResultCodes.SUCCESS_05000)
                 {
                     // Сохраняем в базу данных Base64
-                    await _helperRepository.KatmHelper(loanApplications.KeyLoanHistoryKb, baseResponse.data.reportBase64, IHelperRepository.TypeOperation.Base64, cancellationToken);
+                    await _helperRepository.KatmHelper(loanApplications.KeyCreditBureauKb, baseResponse.data.reportBase64, IHelperRepository.TypeOperation.Base64, cancellationToken);
                 }
                 else if (baseResponse.data.result == CreditBureauResultCodes.IDENTICAL_REQUEST)
                 {
-                    await _helperRepository.KatmHelper(loanApplications.KeyLoanHistoryKb, 5.ToJSON(), IHelperRepository.TypeOperation.AddNextAccess, cancellationToken);
+                    await _helperRepository.KatmHelper(loanApplications.KeyCreditBureauKb, 5.ToJSON(), IHelperRepository.TypeOperation.AddNextAccess, cancellationToken);
                 }
                 else if (baseResponse.data.result == CreditBureauResultCodes.WAIT_AND_TRY_AGAIN)
                 {
-                    await _helperRepository.KatmHelper(loanApplications.KeyLoanHistoryKb, 1.ToJSON(), IHelperRepository.TypeOperation.AddNextAccess, cancellationToken);
+                    await _helperRepository.KatmHelper(loanApplications.KeyCreditBureauKb, 1.ToJSON(), IHelperRepository.TypeOperation.AddNextAccess, cancellationToken);
                 }
             }
             catch (Exception ex)
             {
-                _logWriter.Log("CreditReportStatusResponse.txt", $"KeyAbsLoan:ClaimId: {loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyLoanHistoryKb} - {DateTime.Now}\n\n" + ex.Message);
+                _logWriter.Log("CreditReportStatusResponse.txt", $"KeyAbsLoan:ClaimId: {loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyCreditBureauKb} - {DateTime.Now}\n\n" + ex.Message);
                 return;
             }
         }

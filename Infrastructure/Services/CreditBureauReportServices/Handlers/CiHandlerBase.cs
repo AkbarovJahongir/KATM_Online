@@ -1,7 +1,7 @@
 using Application.Repositories.CreditBureauReportRepositories;
-using CreditBureau.Contracts.AsokiLoanApplications.CreditRegistration.CreditAgreementsAndLeasing.Responses;
-using CreditBureau.Contracts.AsokiLoanApplications.CreditRegistration.CreditApplications;
-using CreditBureau.Contracts.Common;
+using CreditBureauService.Contracts.CreditBureauApplications.CreditRegistration.CreditAgreementsAndLeasing.Responses;
+using CreditBureauService.Contracts.CreditBureauApplications.CreditRegistration.CreditApplications;
+using CreditBureauService.Contracts.Common;
 using Domain.Common.Constants;
 using Domain.Common.Settings;
 using Infrastructure.Common.Helpers.JsonHelpes;
@@ -10,8 +10,8 @@ using Infrastructure.Services.HttpClients;
 using Infrastructure.Services.Notifications;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-using BankHeader = CreditBureau.Contracts.AsokiLoanApplications.CreditRegistration.CreditApplications.BankHeader;
-using RequestSecurity = CreditBureau.Contracts.Common.RequestSecurity;
+using BankHeader = CreditBureauService.Contracts.CreditBureauApplications.CreditRegistration.CreditApplications.BankHeader;
+using RequestSecurity = CreditBureauService.Contracts.Common.RequestSecurity;
 
 namespace Infrastructure.Services.CreditBureauReportServices.Handlers;
 
@@ -22,8 +22,8 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
 {
     protected readonly ICreditBureauReportRepository CreditBureauReportRepository;
     protected readonly IRequestManagerService RequestManagerService;
-    protected readonly AsokiReportApiOptions AsokiReportApiOptions;
-    protected readonly AsokiApplicationApiOptions AsokiApplicationApiOptions;
+    protected readonly CreditBureauReportApiOptions CreditBureauReportApiOptions;
+    protected readonly CreditBureauApiOptions CreditBureauApiOptions;
     protected readonly RequestSecurity RequestSecurity;
     protected readonly BankHeader BankHeader;
     protected readonly LogWriter LogWriter;
@@ -33,8 +33,8 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
     protected CiHandlerBase(
         ICreditBureauReportRepository creditBureauReportRepository,
         IRequestManagerService requestManagerService,
-        AsokiReportApiOptions asokiReportApiOptions,
-        AsokiApplicationApiOptions asokiApplicationApiOptions,
+        CreditBureauReportApiOptions CreditBureauReportApiOptions,
+        CreditBureauApiOptions CreditBureauApiOptions,
         RequestSecurity requestSecurity,
         BankHeader bankHeader,
         LogWriter logWriter,
@@ -43,8 +43,8 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
     {
         CreditBureauReportRepository = creditBureauReportRepository;
         RequestManagerService = requestManagerService;
-        AsokiReportApiOptions = asokiReportApiOptions;
-        AsokiApplicationApiOptions = asokiApplicationApiOptions;
+        CreditBureauReportApiOptions = CreditBureauReportApiOptions;
+        CreditBureauApiOptions = CreditBureauApiOptions;
         RequestSecurity = requestSecurity;
         BankHeader = bankHeader;
         LogWriter = logWriter;
@@ -286,8 +286,8 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
             var pCodeProperty = type.GetProperty("PCode");
             var pDateProperty = type.GetProperty("PDate");
 
-            pHeadProperty?.SetValue(request, AsokiReportApiOptions.PHead);
-            pCodeProperty?.SetValue(request, AsokiReportApiOptions.PCode);
+            pHeadProperty?.SetValue(request, CreditBureauReportApiOptions.PHead);
+            pCodeProperty?.SetValue(request, CreditBureauReportApiOptions.PCode);
 
             if (pDateProperty is not null)
             {
@@ -300,3 +300,7 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
         }
     }
 }
+
+
+
+
