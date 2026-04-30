@@ -10,7 +10,8 @@ using Infrastructure.Services.HttpClients;
 using Infrastructure.Services.Notifications;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-using BankHeader = CreditBureauService.Contracts.CreditBureauApplications.CreditRegistration.CreditApplications.BankHeader;
+using BankHeader =
+    CreditBureauService.Contracts.CreditBureauApplications.CreditRegistration.CreditApplications.BankHeader;
 using RequestSecurity = CreditBureauService.Contracts.Common.RequestSecurity;
 
 namespace Infrastructure.Services.CreditBureauReportServices.Handlers;
@@ -29,6 +30,7 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
     protected readonly LogWriter LogWriter;
     protected readonly ITelegramNotificationService TelegramNotificationService;
     protected readonly ILogger<CiHandlerBase<TRequest>> Logger;
+    protected string? _currentRequestJson;
 
     protected CiHandlerBase(
         ICreditBureauReportRepository creditBureauReportRepository,
@@ -43,8 +45,8 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
     {
         CreditBureauReportRepository = creditBureauReportRepository;
         RequestManagerService = requestManagerService;
-        CreditBureauReportApiOptions = CreditBureauReportApiOptions;
-        CreditBureauApiOptions = CreditBureauApiOptions;
+        this.CreditBureauReportApiOptions = CreditBureauReportApiOptions;
+        this.CreditBureauApiOptions = CreditBureauApiOptions;
         RequestSecurity = requestSecurity;
         BankHeader = bankHeader;
         LogWriter = logWriter;
@@ -90,9 +92,10 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
                 beforeRequestAction?.Invoke(item.Request);
 
                 var baseRequest = prepareRequestFunc(item.Request);
+                _currentRequestJson = baseRequest.ToJSON();
                 var response = await RequestManagerService.SendPostRequest(
                     endpoint,
-                    baseRequest.ToJSON(),
+                    _currentRequestJson,
                     item.LoanKey,
                     cancellationToken);
 
@@ -110,7 +113,8 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
                     continue;
                 }
 
-                var (isSuccess, message, token) = await ProcessResponseAsync(response, item.LoanKey, logFileName, cancellationToken);
+                var (isSuccess, message, token) =
+                    await ProcessResponseAsync(response, item.LoanKey, logFileName, cancellationToken);
                 var ciStatus = (byte)(isSuccess ? 1 : 2);
 
                 if (isSuccess)
@@ -128,7 +132,8 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
             catch (Exception ex)
             {
                 result.Error++;
-                Logger.LogError(ex, "CI-{CiCode} error processing LoanKey={LoanKey}. Error={Error}", CiCode, item.LoanKey, ex.Message);
+                Logger.LogError(ex, "CI-{CiCode} error processing LoanKey={LoanKey}. Error={Error}", CiCode,
+                    item.LoanKey, ex.Message);
                 await NotifyErrorAsync(
                     $"CI-{CiCode:D3} processing exception",
                     item.LoanKey,
@@ -136,6 +141,10 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
                     cancellationToken);
                 await CreditBureauReportRepository.UpsertCiStatusAsync(
                     item.LoanKey, CiCode, 2, $"CI-{CiCode:D3} processing error: {ex.Message}", null, cancellationToken);
+            }
+            finally
+            {
+                _currentRequestJson = null;
             }
         }
 
@@ -157,7 +166,8 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
     {
         if (!IsJsonResponse(response))
         {
-            Logger.LogWarning("LoanKey:{LoanKey} CI-{CiCode} invalid response format. Response:{Response}", loanKey, CiCode, GetResponsePreview(response, 500));
+            Logger.LogWarning("LoanKey:{LoanKey} CI-{CiCode} invalid response format. Response:{Response}", loanKey,
+                CiCode, GetResponsePreview(response, 500));
             await NotifyErrorAsync(
                 $"CI-{CiCode:D3} invalid response format",
                 loanKey,
@@ -170,7 +180,8 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
         var baseResponse = wrappedResponse?.data ?? TryDeserializeJson<CreditRegistrationResponse>(response);
         if (baseResponse is null)
         {
-            Logger.LogWarning("LoanKey:{LoanKey} CI-{CiCode} failed to deserialize response. Response:{Response}", loanKey, CiCode, GetResponsePreview(response, 500));
+            Logger.LogWarning("LoanKey:{LoanKey} CI-{CiCode} failed to deserialize response. Response:{Response}",
+                loanKey, CiCode, GetResponsePreview(response, 500));
             await NotifyErrorAsync(
                 $"CI-{CiCode:D3} invalid JSON structure",
                 loanKey,
@@ -179,8 +190,10 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
             return (false, $"Invalid JSON structure from API: {GetResponsePreview(response, 200)}", null);
         }
 
-        var isSuccess = baseResponse?.result is CreditBureauResultCodes.SUCCESS_00000 or CreditBureauResultCodes.SUCCESS_05000;
-        var message = baseResponse?.resultMessage ?? wrappedResponse?.errorMessage ?? (isSuccess ? "Success" : "Unknown error");
+        var isSuccess =
+            baseResponse?.result is CreditBureauResultCodes.SUCCESS_00000 or CreditBureauResultCodes.SUCCESS_05000;
+        var message = baseResponse?.resultMessage ??
+                      wrappedResponse?.errorMessage ?? (isSuccess ? "Success" : "Unknown error");
         string? token = null;
 
         if (isSuccess)
@@ -232,16 +245,30 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
         }
         catch (JsonException ex)
         {
-            Logger.LogWarning(ex, "CI-{CiCode} JSON deserialization failed for type {TypeName}", CiCode, typeof(T).Name);
+            Logger.LogWarning(ex, "CI-{CiCode} JSON deserialization failed for type {TypeName}", CiCode,
+                typeof(T).Name);
             return null;
         }
     }
 
-    protected Task NotifyErrorAsync(string source, int loanKey, string details, CancellationToken cancellationToken = default) =>
-        TelegramNotificationService.NotifyErrorAsync(
+    protected Task NotifyErrorAsync(string source, int loanKey, string details,
+        CancellationToken cancellationToken = default)
+    {
+        if (TelegramNotificationService is null)
+        {
+            Logger.LogWarning("CI-{CiCode} TelegramNotificationService is null, skipping notification", CiCode);
+            return Task.CompletedTask;
+        }
+
+        var requestInfo = _currentRequestJson is not null
+            ? $"\nRequest: {GetResponsePreview(_currentRequestJson, 1500)}"
+            : string.Empty;
+
+        return TelegramNotificationService.NotifyErrorAsync(
             source,
-            $"LoanKey: {loanKey}\nDetails: {details}",
+            $"LoanKey: {loanKey}\nDetails: {details}{requestInfo}",
             cancellationToken);
+    }
 
     /// <summary>
     /// Форматирование даты для КАТМ
@@ -257,11 +284,17 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
     /// <summary>
     /// Подготовка стандартного запроса
     /// </summary>
-    protected BaseRequest<TRequest> CreateBaseRequest(TRequest request) => new()
+    protected BaseRequest<TRequest> CreateBaseRequest(TRequest request)
     {
-        Data = request,
-        Security = RequestSecurity
-    };
+        if (request is null)
+            throw new ArgumentNullException(nameof(request));
+
+        return new BaseRequest<TRequest>
+        {
+            Data = request,
+            Security = RequestSecurity ?? throw new InvalidOperationException("RequestSecurity is not configured")
+        };
+    }
 
     /// <summary>
     /// Подготовка запроса с Header для кредитных заявок
@@ -276,31 +309,36 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
     /// <summary>
     /// Установка стандартных полей PHead, PCode, PDate
     /// </summary>
-    protected void SetStandardFields(object request, string? pDate = null)
+    protected void SetStandardFields(object request, string? pDate = null, bool setPDate = true)
     {
-        if (request is not null)
+        if (request is null)
         {
-            var type = request.GetType();
+            Logger?.LogWarning("CI-{CiCode} SetStandardFields: request is null", CiCode);
+            return;
+        }
 
-            var pHeadProperty = type.GetProperty("PHead");
-            var pCodeProperty = type.GetProperty("PCode");
-            var pDateProperty = type.GetProperty("PDate");
+        if (CreditBureauReportApiOptions is null)
+        {
+            Logger?.LogError("CI-{CiCode} SetStandardFields: CreditBureauReportApiOptions is null", CiCode);
+            return;
+        }
 
-            pHeadProperty?.SetValue(request, CreditBureauReportApiOptions.PHead);
-            pCodeProperty?.SetValue(request, CreditBureauReportApiOptions.PCode);
+        var type = request.GetType();
 
-            if (pDateProperty is not null)
-            {
-                var currentValue = pDateProperty.GetValue(request) as string;
-                var newValue = string.IsNullOrWhiteSpace(currentValue)
-                    ? (pDate ?? FormatKatmDate(DateTimeOffset.Now))
-                    : currentValue.Trim();
-                pDateProperty.SetValue(request, newValue);
-            }
+        var pHeadProperty = type.GetProperty("PHead");
+        var pCodeProperty = type.GetProperty("PCode");
+        var pDateProperty = type.GetProperty("PDate");
+
+        pHeadProperty?.SetValue(request, CreditBureauReportApiOptions.PHead);
+        pCodeProperty?.SetValue(request, CreditBureauReportApiOptions.PCode);
+
+        if (setPDate && pDateProperty is not null)
+        {
+            var currentValue = pDateProperty.GetValue(request) as string;
+            var newValue = string.IsNullOrWhiteSpace(currentValue)
+                ? (pDate ?? FormatKatmDate(DateTimeOffset.Now))
+                : currentValue.Trim();
+            pDateProperty.SetValue(request, newValue);
         }
     }
 }
-
-
-
-

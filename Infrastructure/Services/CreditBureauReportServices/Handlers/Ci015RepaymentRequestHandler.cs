@@ -35,6 +35,13 @@ public class Ci015RepaymentRequestHandler : CiHandlerBase<CreditRegistrationRepa
 
     public override async Task<CiProcessingResult> ProcessAsync(CancellationToken cancellationToken)
     {
+        if (CreditBureauReportRepository is null)
+            throw new InvalidOperationException("CreditBureauReportRepository is not configured");
+        if (RequestManagerService is null)
+            throw new InvalidOperationException("RequestManagerService is not configured");
+        if (CreditBureauApiOptions is null)
+            throw new InvalidOperationException("CreditBureauApiOptions is not configured");
+
         var requests = await CreditBureauReportRepository.GetCreditRegistrationRepaymentRequestsAsync(cancellationToken);
         Logger.LogInformation("CI-{CiCode} queue loaded. Count={Count}", CiCode, requests.Count);
 
@@ -56,13 +63,19 @@ public class Ci015RepaymentRequestHandler : CiHandlerBase<CreditRegistrationRepa
 
             try
             {
+                if (CreditBureauApiOptions is null)
+                    throw new InvalidOperationException("CreditBureauApiOptions is not configured");
+                if (RequestManagerService is null)
+                    throw new InvalidOperationException("RequestManagerService is not configured");
+
                 SetStandardFields(item.Request);
 
                 var baseRequest = CreateBaseRequest(item.Request);
+                _currentRequestJson = baseRequest.ToJSON();
 
                 var response = await RequestManagerService.SendPostRequest(
                     CreditBureauApiOptions.HostAddress + CreditBureauApiOptions.CreditRegistrationRepaymentUrl,
-                    baseRequest.ToJSON(),
+                    _currentRequestJson,
                     item.LoanKey,
                     cancellationToken);
 
@@ -133,6 +146,10 @@ public class Ci015RepaymentRequestHandler : CiHandlerBase<CreditRegistrationRepa
                 Logger.LogError(ex, "CI-{CiCode} error processing LoanKey={LoanKey}. Error={Error}", CiCode, item.LoanKey, ex.Message);
                 await CreditBureauReportRepository.UpsertCiStatusAsync(
                     item.LoanKey, CiCode, 2, $"CI-{CiCode:D3} processing error: {ex.Message}", null, cancellationToken);
+            }
+            finally
+            {
+                _currentRequestJson = null;
             }
         }
 
@@ -173,14 +190,20 @@ public class Ci015RepaymentRequestHandler : CiHandlerBase<CreditRegistrationRepa
 
             try
             {
+                if (CreditBureauApiOptions is null)
+                    throw new InvalidOperationException("CreditBureauApiOptions is not configured");
+                if (RequestManagerService is null)
+                    throw new InvalidOperationException("RequestManagerService is not configured");
+
                 item.Request.PDate = FormatKatmIsoDateAtStartOfDay(DateTimeOffset.Now);
                 SetStandardFields(item.Request);
 
                 var baseRequest = CreateBaseRequest(item.Request);
+                _currentRequestJson = baseRequest.ToJSON();
 
                 var response = await RequestManagerService.SendPostRequest(
                     CreditBureauApiOptions.HostAddress + CreditBureauApiOptions.CreditRegistrationRepaymentUrl,
-                    baseRequest.ToJSON(),
+                    _currentRequestJson,
                     item.LoanKey,
                     cancellationToken);
 
@@ -251,6 +274,10 @@ public class Ci015RepaymentRequestHandler : CiHandlerBase<CreditRegistrationRepa
                 Logger.LogError(ex, "CI-{CiCode} error processing LoanKey={LoanKey}. Error={Error}", CiCode, item.LoanKey, ex.Message);
                 await CreditBureauReportRepository.UpsertCiStatusAsync(
                     item.LoanKey, CiCode, 2, $"CI-{CiCode:D3} processing error: {ex.Message}", null, cancellationToken);
+            }
+            finally
+            {
+                _currentRequestJson = null;
             }
         }
 

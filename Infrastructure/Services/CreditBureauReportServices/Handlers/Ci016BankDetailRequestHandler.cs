@@ -60,10 +60,11 @@ public class Ci016BankDetailRequestHandler : CiHandlerBase<CreditRegistrationBan
                 SetStandardFields(item.Request);
 
                 var baseRequest = CreateBaseRequest(item.Request);
+                _currentRequestJson = baseRequest.ToJSON();
 
                 var response = await RequestManagerService.SendPostRequest(
                     CreditBureauApiOptions.HostAddress + CreditBureauApiOptions.CreditRegistrationRepaymentBankDitailUrl,
-                    baseRequest.ToJSON(),
+                    _currentRequestJson,
                     item.LoanKey,
                     cancellationToken);
 
@@ -103,7 +104,7 @@ public class Ci016BankDetailRequestHandler : CiHandlerBase<CreditRegistrationBan
                     continue;
                 }
 
-                var isSuccess = baseResponse.result is CreditBureauResultCodes.SUCCESS_00000 or CreditBureauResultCodes.SUCCESS_05000;
+                var isSuccess = baseResponse?.result is CreditBureauResultCodes.SUCCESS_00000 or CreditBureauResultCodes.SUCCESS_05000;
                 var message = baseResponse?.resultMessage ?? wrappedResponse?.errorMessage ?? (isSuccess ? "Success" : "Unknown error");
                 var ciStatus = (byte)(isSuccess ? 1 : 2);
 
@@ -134,6 +135,10 @@ public class Ci016BankDetailRequestHandler : CiHandlerBase<CreditRegistrationBan
                 Logger.LogError(ex, "CI-{CiCode} error processing LoanKey={LoanKey}. Error={Error}", CiCode, item.LoanKey, ex.Message);
                 await CreditBureauReportRepository.UpsertCiStatusAsync(
                     item.LoanKey, CiCode, 2, $"CI-{CiCode:D3} processing error: {ex.Message}", null, cancellationToken);
+            }
+            finally
+            {
+                _currentRequestJson = null;
             }
         }
 
@@ -177,10 +182,11 @@ public class Ci016BankDetailRequestHandler : CiHandlerBase<CreditRegistrationBan
                 SetStandardFields(item.Request);
 
                 var baseRequest = CreateBaseRequest(item.Request);
+                _currentRequestJson = baseRequest.ToJSON();
 
                 var response = await RequestManagerService.SendPostRequest(
                     CreditBureauApiOptions.HostAddress + CreditBureauApiOptions.CreditRegistrationRepaymentBankDitailUrl,
-                    baseRequest.ToJSON(),
+                    _currentRequestJson,
                     item.LoanKey,
                     cancellationToken);
 
@@ -220,7 +226,7 @@ public class Ci016BankDetailRequestHandler : CiHandlerBase<CreditRegistrationBan
                     continue;
                 }
 
-                var isSuccess = baseResponse.result is CreditBureauResultCodes.SUCCESS_00000 or CreditBureauResultCodes.SUCCESS_05000;
+                var isSuccess = baseResponse?.result is CreditBureauResultCodes.SUCCESS_00000 or CreditBureauResultCodes.SUCCESS_05000;
                 var message = baseResponse?.resultMessage ?? wrappedResponse?.errorMessage ?? (isSuccess ? "Success" : "Unknown error");
                 var ciStatus = (byte)(isSuccess ? 1 : 2);
 
@@ -251,6 +257,10 @@ public class Ci016BankDetailRequestHandler : CiHandlerBase<CreditRegistrationBan
                 Logger.LogError(ex, "CI-{CiCode} error processing LoanKey={LoanKey}. Error={Error}", CiCode, item.LoanKey, ex.Message);
                 await CreditBureauReportRepository.UpsertCiStatusAsync(
                     item.LoanKey, CiCode, 2, $"CI-{CiCode:D3} processing error: {ex.Message}", null, cancellationToken);
+            }
+            finally
+            {
+                _currentRequestJson = null;
             }
         }
 

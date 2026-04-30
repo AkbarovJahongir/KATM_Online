@@ -42,19 +42,13 @@ namespace Infrastructure.CreditRegistration
                 $"KeyAbsLoan:ClaimId:{loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyCreditBureauKb} START");
             if (loanApplications.ApplicationsSubjectType == "0") // Физ. лицо
             {
-                if (int.TryParse(loanApplications.KeyCreditBureauKb, out int loanKey))
-                {
-                    await _creditBureauRepository.UpdateRequestHistoryXmlStatusAsync(
-                        loanApplications.KeyCreditBureauKb, "02", cancellationToken);
-                }
+                await _creditBureauRepository.UpdateRequestHistoryStatusAsync(
+                    loanApplications.KeyCreditBureauKb, "02", cancellationToken);
             }
             else
             {
-                if (int.TryParse(loanApplications.KeyCreditBureauKb, out int loanKey))
-                {
-                    await _creditBureauRepository.UpdateRequestHistoryXmlStatusAsync(
-                        loanApplications.KeyCreditBureauKb, "02", cancellationToken);
-                }
+                await _creditBureauRepository.UpdateRequestHistoryStatusAsync(
+                    loanApplications.KeyCreditBureauKb, "02", cancellationToken);
             }
 
             _logWriter.Log("CreditRegistrationIndividual.txt", $" END END\t");
@@ -74,6 +68,7 @@ namespace Infrastructure.CreditRegistration
                 await _creditBureauRepository.UpdateRequestHistoryXmlStatusAsync(loanApplications.KeyCreditBureauKb,
                     "02", cancellationToken);
             }
+
             _logWriter.Log("CreditRegistrationIndividual.txt", $" END END\t");
         }
     }

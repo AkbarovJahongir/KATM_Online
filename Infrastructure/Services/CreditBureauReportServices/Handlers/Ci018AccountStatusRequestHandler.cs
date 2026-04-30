@@ -60,10 +60,11 @@ public class Ci018AccountStatusRequestHandler : CiHandlerBase<CreditRegistration
                 SetStandardFields(item.Request, FormatKatmDate(System.DateTimeOffset.Now));
 
                 var baseRequest = CreateBaseRequest(item.Request);
+                _currentRequestJson = baseRequest.ToJSON();
 
                 var response = await RequestManagerService.SendPostRequest(
                     CreditBureauApiOptions.HostAddress + CreditBureauApiOptions.AccountStatusUrl,
-                    baseRequest.ToJSON(),
+                    _currentRequestJson,
                     item.LoanKey,
                     cancellationToken);
 
@@ -134,6 +135,10 @@ public class Ci018AccountStatusRequestHandler : CiHandlerBase<CreditRegistration
                 Logger.LogError(ex, "CI-{CiCode} error processing LoanKey={LoanKey}. Error={Error}", CiCode, item.LoanKey, ex.Message);
                 await CreditBureauReportRepository.UpsertCiStatusAsync(
                     item.LoanKey, CiCode, 2, $"CI-{CiCode:D3} processing error: {ex.Message}", null, cancellationToken);
+            }
+            finally
+            {
+                _currentRequestJson = null;
             }
         }
 

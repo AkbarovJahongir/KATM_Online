@@ -59,10 +59,11 @@ public class Ci001IndividualRequestHandler : CiHandlerBase<CreditRegistrationInd
                     Request = item.Request,
                     Security = RequestSecurity
                 };
+                _currentRequestJson = baseRequest.ToJSON();
 
                 var response = await RequestManagerService.SendPostRequest(
                     CreditBureauApiOptions.HostAddress + CreditBureauApiOptions.IndividualPersonApplicationUrl,
-                    baseRequest.ToJSON(),
+                    _currentRequestJson,
                     item.LoanKey,
                     cancellationToken);
 
@@ -134,6 +135,10 @@ public class Ci001IndividualRequestHandler : CiHandlerBase<CreditRegistrationInd
                 await NotifyErrorAsync($"CI-{CiCode:D3} processing exception", item.LoanKey, $"Message: {ex.Message}\nStackTrace: {ex.StackTrace}", cancellationToken);
                 await CreditBureauReportRepository.UpsertCiStatusAsync(
                     item.LoanKey, CiCode, 2, $"CI-{CiCode:D3} processing error: {ex.Message}", null, cancellationToken);
+            }
+            finally
+            {
+                _currentRequestJson = null;
             }
         }
 

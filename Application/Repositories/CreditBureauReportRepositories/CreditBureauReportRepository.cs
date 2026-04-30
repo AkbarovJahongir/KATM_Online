@@ -1102,8 +1102,7 @@ public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : I
             PClaimId = GetString(reader, "pClaimId", "claimId"),
             PDeclineNumber = GetString(reader, "pDeclineNumber", "declineNumber"),
             PDeclineReason = GetString(reader, "pDeclineReason", "declineReason"),
-            PDeclineReasonNote = GetString(reader, "pDeclineReasonNote", "declineReasonNote"),
-            PDate = GetString(reader, "pDate", "date")
+            PDeclineReasonNote = GetString(reader, "pDeclineReasonNote", "declineReasonNote")
         };
     }
 
