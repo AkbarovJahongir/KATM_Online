@@ -1,5 +1,5 @@
-using CreditBureau.Contracts.AsokiLoanApplications.CreditRegistration.CreditAgreementsAndLeasing.Requests;
-using CreditBureau.Contracts.AsokiLoanApplications.CreditRegistration.CreditApplications;
+using CreditBureauService.Contracts.CreditBureauApplications.CreditRegistration.CreditAgreementsAndLeasing.Requests;
+using CreditBureauService.Contracts.CreditBureauApplications.CreditRegistration.CreditApplications;
 using Domain.Common.DbContext;
 using Microsoft.Data.SqlClient;
 using System.Data;
@@ -968,7 +968,7 @@ public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : I
         await connection.CloseAsync();
     }
 
-    public async Task<byte?> GetCi001StatusAsync(int loanKey, CancellationToken cancellationToken)
+    public async Task<byte?> GetCreditBureau001StatusAsync(int loanKey, CancellationToken cancellationToken)
     {
         using var connection = new SqlConnection(_databaseSettings.CIBConnection);
         using var command = new SqlCommand("SELECT ci001 FROM [dbo].[Katm_Methods_Request] WHERE [loanKey] = @loanKey", connection);
@@ -979,7 +979,7 @@ public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : I
         return result == DBNull.Value ? null : Convert.ToByte(result);
     }
 
-    public async Task<byte?> GetCi002StatusAsync(int loanKey, CancellationToken cancellationToken)
+    public async Task<byte?> GetCreditBureau002StatusAsync(int loanKey, CancellationToken cancellationToken)
     {
         using var connection = new SqlConnection(_databaseSettings.CIBConnection);
         using var command = new SqlCommand("SELECT ci002 FROM [dbo].[Katm_Methods_Request] WHERE [loanKey] = @loanKey", connection);
@@ -1102,8 +1102,7 @@ public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : I
             PClaimId = GetString(reader, "pClaimId", "claimId"),
             PDeclineNumber = GetString(reader, "pDeclineNumber", "declineNumber"),
             PDeclineReason = GetString(reader, "pDeclineReason", "declineReason"),
-            PDeclineReasonNote = GetString(reader, "pDeclineReasonNote", "declineReasonNote"),
-            PDate = GetString(reader, "pDate", "date")
+            PDeclineReasonNote = GetString(reader, "pDeclineReasonNote", "declineReasonNote")
         };
     }
 

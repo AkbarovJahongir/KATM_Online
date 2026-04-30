@@ -1,4 +1,4 @@
-﻿using CreditBureau.Contracts.AsokiLoanApplications.CreditRegistration.CreditApplications;
+using CreditBureauService.Contracts.CreditBureauApplications.CreditRegistration.CreditApplications;
 
 namespace Application.CreditRegistration
 {

@@ -18,6 +18,10 @@ namespace Infrastructure.Services.HttpClients
         private readonly IHelperRepository _repository = repository;
         private readonly IRequestManagerRepository _requestManagerRepository = requestManagerRepository;
         private readonly ITelegramNotificationService _telegramNotificationService = telegramNotificationService;
+        
+        private const int MaxRetries = 3;
+        private const int InitialRetryDelayMs = 1000;
+
         public async Task<string> SendPostRequest(string url, string jsonData, string KeyLoanHistoryKb, IsXml isxml, CancellationToken cancellationToken)
         {
             string result = string.Empty;
@@ -140,58 +144,74 @@ namespace Infrastructure.Services.HttpClients
             DateTime dateRequest = DateTime.Now;
             HttpResponseMessage? httpResponseMessage = null;
             string responseBody = string.Empty;
+            Exception? lastException = null;
 
             try
             {
-                httpResponseMessage = await httpClient.SendAsync(request, cancellationToken);
-                DateTime dateResponse = DateTime.Now;
-                responseBody = httpResponseMessage.Content is null
-                    ? string.Empty
-                    : await httpResponseMessage.Content.ReadAsStringAsync(cancellationToken);
-
-                _logger.LogInformation(
-                    "LoanKey:{LoanKey}. POST finished with status {StatusCode}",
-                    LoanKey,
-                    (int)httpResponseMessage.StatusCode);
-                _logger.LogDebug("LoanKey:{LoanKey}. Response body: {ResponseBody}", LoanKey, responseBody);
-
-                var contentType = httpResponseMessage.Content.Headers.ContentType?.MediaType;
-                if (contentType != "application/json")
+                for (int attempt = 1; attempt <= MaxRetries; attempt++)
                 {
-                    _logger.LogWarning(
-                        "LoanKey:{LoanKey}. Unexpected Content-Type: {ContentType}. Response: {ResponseBody}",
-                        LoanKey, contentType, responseBody);
-                    _logWriter.Log(
-                        "RequestManager.txt",
-                        $"LoanKey:{LoanKey}. WARNING: Content-Type is {contentType}, expected application/json. ResponseBody:{responseBody}");
+                    try
+                    {
+                        httpResponseMessage = await httpClient.SendAsync(request, cancellationToken);
+                        DateTime dateResponse = DateTime.Now;
+                        responseBody = httpResponseMessage.Content is null
+                            ? string.Empty
+                            : await httpResponseMessage.Content.ReadAsStringAsync(cancellationToken);
+
+                        _logger.LogInformation(
+                            "LoanKey:{LoanKey}. POST finished with status {StatusCode}",
+                            LoanKey,
+                            (int)httpResponseMessage.StatusCode);
+                        _logger.LogDebug("LoanKey:{LoanKey}. Response body: {ResponseBody}", LoanKey, responseBody);
+
+                        var contentType = httpResponseMessage.Content.Headers.ContentType?.MediaType;
+                        if (contentType != "application/json")
+                        {
+                            _logger.LogWarning(
+                                "LoanKey:{LoanKey}. Unexpected Content-Type: {ContentType}. Response: {ResponseBody}",
+                                LoanKey, contentType, responseBody);
+                            _logWriter.Log(
+                                "RequestManager.txt",
+                                $"LoanKey:{LoanKey}. WARNING: Content-Type is {contentType}, expected application/json. ResponseBody:{responseBody}");
+                        }
+
+                        _logWriter.Log(
+                            "RequestManager.txt",
+                            $"LoanKey:{LoanKey}. ResponseStatus:{(int)httpResponseMessage.StatusCode}. ResponseBody:{responseBody}");
+
+                        var (code, message) = await _requestManagerRepository.InsertRequestLog(
+                            url,
+                            jsonData,
+                            request.Method.Method,
+                            ((int)httpResponseMessage.StatusCode).ToString(),
+                            responseBody,
+                            dateRequest,
+                            dateResponse,
+                            LoanKey.ToString(),
+                            cancellationToken);
+
+                        if (string.IsNullOrWhiteSpace(code) || code == "1")
+                        {
+                            _logWriter.EmergencyLog(
+                                "EmergencyLog.txt",
+                                $"LoanKey:{loanKeyText}. Failed to write RequestLogs. Message:{message}. Status:{(int)httpResponseMessage.StatusCode}");
+                        }
+
+                        result = responseBody;
+                        return result;
+                    }
+                    catch (HttpRequestException ex) when (attempt < MaxRetries)
+                    {
+                        lastException = ex;
+                        var delay = InitialRetryDelayMs * (int)Math.Pow(2, attempt - 1);
+                        _logger.LogWarning("LoanKey:{LoanKey}. Attempt {Attempt}/{MaxRetries} failed. Retrying in {Delay}ms. Error: {Error}", LoanKey, attempt, MaxRetries, delay, ex.Message);
+                        _logWriter.Log("RequestManager.txt", $"LoanKey:{LoanKey}. Attempt {attempt} failed: {ex.Message}. Retrying...");
+                        await Task.Delay(delay, cancellationToken);
+                    }
                 }
-
-                _logWriter.Log(
-                    "RequestManager.txt",
-                    $"LoanKey:{LoanKey}. ResponseStatus:{(int)httpResponseMessage.StatusCode}. ResponseBody:{responseBody}");
-
-                var (code, message) = await _requestManagerRepository.InsertRequestLog(
-                    url,
-                    jsonData,
-                    request.Method.Method,
-                    ((int)httpResponseMessage.StatusCode).ToString(),
-                    responseBody,
-                    dateRequest,
-                    dateResponse,
-                    LoanKey.ToString(),
-                    cancellationToken);
-
-                if (string.IsNullOrWhiteSpace(code) || code == "1")
-                {
-                    _logWriter.EmergencyLog(
-                        "EmergencyLog.txt",
-                        $"LoanKey:{loanKeyText}. Failed to write RequestLogs. Message:{message}. Status:{(int)httpResponseMessage.StatusCode}");
-                }
-
-                result = responseBody;
                 return result;
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex != lastException)
             {
                 DateTime dateResponse = DateTime.Now;
                 _logger.LogError(ex, "LoanKey:{LoanKey}. POST request failed", LoanKey);

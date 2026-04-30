@@ -6,31 +6,128 @@
   <component name="AutoImportSettings">
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
+  <component name="CMakeProjectFlavorService">
+    <option name="flavorId" value="CMakePlainProjectFlavor" />
+  </component>
+  <component name="CMakeSettings">
+    <configurations />
+  </component>
   <component name="ChangeListManager">
     <list default="true" id="59229b5c-96e6-49ef-8ef2-aa3e37a50049" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/.idea.CreditBureau/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.CreditBureau/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Application/Application.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/Application/Application.csproj" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Application/CreditRegistration/CreditRegistrationRepository.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Application/CreditRegistration/CreditRegistrationRepository.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Application/CreditRegistration/ICreditRegistrationRepository.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Application/CreditRegistration/ICreditRegistrationRepository.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Application/DependencyInjection.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Application/DependencyInjection.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Application/Repositories/AsokiRepositories/AsokiRepository.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Application/Repositories/AsokiRepositories/IAsokiRepository.cs" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/Application/Repositories/CreditBureauReportRepositories/CreditBureauReportRepository.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Application/Repositories/CreditBureauReportRepositories/CreditBureauReportRepository.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Application/Repositories/CreditBureauReportRepositories/ICreditBureauReportRepository.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Application/Repositories/CreditBureauReportRepositories/ICreditBureauReportRepository.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/CreditBureau/CreditBureau.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/CreditBureau/CreditBureau.csproj" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/CreditBureau/DependencyInjection.cs" beforeDir="false" afterPath="$PROJECT_DIR$/CreditBureau/DependencyInjection.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/CreditBureau/Program.cs" beforeDir="false" afterPath="$PROJECT_DIR$/CreditBureau/Program.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/CreditBureau/appsettings.json" beforeDir="false" afterPath="$PROJECT_DIR$/CreditBureau/appsettings.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Application/Repositories/CreditReportXmlParserRepositories/CreditReportXmlParserRepository.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Application/Repositories/CreditReportXmlParserRepositories/CreditReportXmlParserRepository.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Application/Repositories/CreditReportXmlParserRepositories/ICreditReportXmlParserRepository.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Application/Repositories/CreditReportXmlParserRepositories/ICreditReportXmlParserRepository.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau.Contracts/AsokiLoanApplications/CreditRegistration/CreditAgreementsAndLeasing/Requests/CreditRegistrationAccountStatus.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau.Contracts/AsokiLoanApplications/CreditRegistration/CreditAgreementsAndLeasing/Requests/CreditRegistrationBankDitailRequest.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau.Contracts/AsokiLoanApplications/CreditRegistration/CreditAgreementsAndLeasing/Requests/CreditRegistrationBusinessDetailRequest.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau.Contracts/AsokiLoanApplications/CreditRegistration/CreditAgreementsAndLeasing/Requests/CreditRegistrationDeclineRequest.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau.Contracts/AsokiLoanApplications/CreditRegistration/CreditAgreementsAndLeasing/Requests/CreditRegistrationFactoring.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau.Contracts/AsokiLoanApplications/CreditRegistration/CreditAgreementsAndLeasing/Requests/CreditRegistrationLeasingRepayment.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau.Contracts/AsokiLoanApplications/CreditRegistration/CreditAgreementsAndLeasing/Requests/CreditRegistrationLeasingRepaymentSchedule.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau.Contracts/AsokiLoanApplications/CreditRegistration/CreditAgreementsAndLeasing/Requests/CreditRegistrationLeasingRequest.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau.Contracts/AsokiLoanApplications/CreditRegistration/CreditAgreementsAndLeasing/Requests/CreditRegistrationPledgeOwner.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau.Contracts/AsokiLoanApplications/CreditRegistration/CreditAgreementsAndLeasing/Requests/CreditRegistrationPledgeSecurity.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau.Contracts/AsokiLoanApplications/CreditRegistration/CreditAgreementsAndLeasing/Requests/CreditRegistrationRepayment.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau.Contracts/AsokiLoanApplications/CreditRegistration/CreditAgreementsAndLeasing/Requests/CreditRegistrationRepaymentSchedule.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau.Contracts/AsokiLoanApplications/CreditRegistration/CreditAgreementsAndLeasing/Requests/CreditRegistrationRequest.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau.Contracts/AsokiLoanApplications/CreditRegistration/CreditAgreementsAndLeasing/Requests/CreditRegistrationSubjectRequest.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau.Contracts/AsokiLoanApplications/CreditRegistration/CreditAgreementsAndLeasing/Responses/CreditRegistrationResponse.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau.Contracts/AsokiLoanApplications/CreditRegistration/CreditApplications/BaseRequestForCreditApplications.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau.Contracts/AsokiLoanApplications/CreditRegistration/CreditApplications/CreditRegistrationEntityRequest.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau.Contracts/AsokiLoanApplications/CreditRegistration/CreditApplications/CreditRegistrationIndividualRequest.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau.Contracts/AsokiLoanApplications/CreditRegistration/CreditApplications/CreditRegistrationSubjectResponse.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau.Contracts/AsokiLoanApplications/CreditRegistration/PackageRequest.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau.Contracts/AsokiLoanApplications/CreditRegistration/RequestHistoryData.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau.Contracts/AsokiLoanApplications/LoanApplication.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau.Contracts/AsokiLoanApplications/СreditReports/CreditReportData.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau.Contracts/AsokiLoanApplications/СreditReports/CreditReportRequest.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau.Contracts/AsokiLoanApplications/СreditReports/CreditReportResponse.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau.Contracts/AsokiLoanApplications/СreditReports/CreditReportStatusData.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau.Contracts/AsokiLoanApplications/СreditReports/CreditReportStatusRequest.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau.Contracts/AsokiLoanApplications/СreditReports/CreditReportStatusResponse.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau.Contracts/Common/BaseRequest.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau.Contracts/Common/BaseResponse.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau.Contracts/Common/RequestSecurity.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau.Contracts/CreditBureau.Contracts.csproj" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau.Contracts/CreditReportParser/Report077Data.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau.sln" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau/AsokiWorker.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau/AsokiWorkerXml.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau/CreditBureau.csproj" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau/CreditBureauReportWorker.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau/DependencyInjection.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau/Endpoints/CreditBureauPeriodReportEndpoints.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau/Program.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau/Properties/launchSettings.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau/appsettings.Development.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureau/appsettings.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureauCreditRegistrationIndividual.txt" beforeDir="false" afterPath="$PROJECT_DIR$/CreditBureauCreditRegistrationIndividual.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureauCreditReportCatch.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CreditBureauRequestManager.txt" beforeDir="false" afterPath="$PROJECT_DIR$/CreditBureauRequestManager.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/CreditBureauWorkerServerStateXml.txt" beforeDir="false" afterPath="$PROJECT_DIR$/CreditBureauWorkerServerStateXml.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Infrastructure/DependencyInjection.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Infrastructure/DependencyInjection.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/CreditBureauReportService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/CreditBureauReportService.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/ICreditBureauReportService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/ICreditBureauReportService.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/DelphiClient/README.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/DelphiClient/uCreditBureauAPI.pas" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/DelphiClient/uCreditBureauAPI_Example.dfm" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/DelphiClient/uCreditBureauAPI_Example.pas" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Domain/Common/Settings/AsokiApplicationApiOptions.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Domain/Common/Settings/AsokiReportApiOptions.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Infrastructure/CreditRegistration/CreditRegistrationService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Infrastructure/CreditRegistration/CreditRegistrationService.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Infrastructure/CreditRegistration/ICreditRegistrationService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Infrastructure/CreditRegistration/ICreditRegistrationService.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Infrastructure/CreditReports/CreditReportService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Infrastructure/CreditReports/CreditReportService.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Infrastructure/CreditReports/ICreditReportService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Infrastructure/CreditReports/ICreditReportService.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Infrastructure/CreditReportsXml/CreditReportXmlService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Infrastructure/CreditReportsXml/CreditReportXmlService.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Infrastructure/CreditReportsXml/ICreditReportXmlService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Infrastructure/CreditReportsXml/ICreditReportXmlService.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Infrastructure/CreditReportsXml/Parsers/AsokiCreditReportXmlParser.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Infrastructure/DependencyInjection.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/Handlers/DependencyInjection.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Infrastructure/Services/AsokiServices/AsokiService.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Infrastructure/Services/AsokiServices/IAsokiService.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Infrastructure/Services/AsokiXmlServices/AsokiXmlService.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Infrastructure/Services/AsokiXmlServices/IAsokiXmlService.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/Handlers/Ci001IndividualRequestHandler.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/Handlers/Ci001IndividualRequestHandler.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/Handlers/Ci002EntityRequestHandler.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/Handlers/Ci002EntityRequestHandler.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/Handlers/Ci003DeclineRequestHandler.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/Handlers/Ci003DeclineRequestHandler.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/Handlers/Ci004CreditRegistrationRequestHandler.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/Handlers/Ci004CreditRegistrationRequestHandler.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/Handlers/Ci005RepaymentScheduleHandler.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/Handlers/Ci005RepaymentScheduleHandler.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/Handlers/Ci015RepaymentRequestHandler.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/Handlers/Ci015RepaymentRequestHandler.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/Handlers/Ci016BankDetailRequestHandler.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/Handlers/Ci016BankDetailRequestHandler.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/Handlers/Ci018AccountStatusRequestHandler.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/Handlers/Ci018AccountStatusRequestHandler.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/Handlers/Ci020PledgeOwnerRequestHandler.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/Handlers/Ci020PledgeOwnerRequestHandler.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/Handlers/Ci021PledgeSecurityRequestHandler.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/Handlers/Ci021PledgeSecurityRequestHandler.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/Handlers/Ci022BusinessDetailRequestHandler.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/Handlers/Ci022BusinessDetailRequestHandler.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/Handlers/Ci023SubjectRequestHandler.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/Handlers/Ci023SubjectRequestHandler.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/Handlers/CiHandlerBase.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/Handlers/CiHandlerBase.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/SqlScripts/API_Documentation.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/SqlScripts/InsertRequestLogs.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/SqlScripts/KATM_Report_ByDate_Functions.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/SqlScripts/KATM_Report_ByPeriod_Functions.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/SqlScripts/Katm_Methods_Request_UpsertCiStatus.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/SqlScripts/RequestLogs.sql" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
+  <component name="ChangesViewManager">
+    <option name="groupingKeys">
+      <option value="directory" />
+      <option value="repository" />
+    </option>
+  </component>
   <component name="DpaMonitoringSettings">
     <option name="firstShow" value="false" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="48" />
+    <option name="cachedIndexableFilesCount" value="46" />
   </component>
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
@@ -49,26 +146,34 @@
   <component name="GithubPullRequestsUISettings">{
   &quot;selectedUrlAndAccountId&quot;: {
     &quot;url&quot;: &quot;https://github.com/AkbarovJahongir/KATM_Online.git&quot;,
-    &quot;accountId&quot;: &quot;ffddd2f8-c0df-4867-b9d2-c581e27466d4&quot;
+    &quot;accountId&quot;: &quot;54afd200-021a-4286-b258-b68fc752dc7d&quot;
   }
 }</component>
   <component name="HighlightingSettingsPerFile">
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/eaf74182ad7c943aaf043fd9e7bbb1d564713c6bd276e62966aaa618e9/LoggerExtensions.cs" root0="FORCE_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/Application/CreditRegistration/CreditRegistrationRepository.cs" root0="FORCE_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/Application/CreditRegistration/ICreditRegistrationRepository.cs" root0="FORCE_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/Application/Repositories/CreditBureauReportRepositories/CreditBureauReportRepository.cs" root0="FORCE_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/Application/Repositories/CreditBureauReportRepositories/ICreditBureauReportRepository.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/DecompilerCache/decompiler/376e9cf87e9f457a80b9fd19d675c52dc90930/1d/0f11cb9b/String.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/DecompilerCache/decompiler/376e9cf87e9f457a80b9fd19d675c52dc90930/83/ad713771/Monitor.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/DecompilerCache/decompiler/376e9cf87e9f457a80b9fd19d675c52dc90930/c5/1a8bf559/CancellationToken.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/DecompilerCache/decompiler/376e9cf87e9f457a80b9fd19d675c52dc90930/e8/4d7cdf5a/DateTimeOffset.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/Application/CreditRegistration/CreditRegistrationRepository.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/Application/CreditRegistration/ICreditRegistrationRepository.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/Application/Repositories/CreditBureauReportRepositories/CreditBureauReportRepository.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/Application/Repositories/CreditBureauReportRepositories/ICreditBureauReportRepository.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/Application/Repositories/Helpers/HelperRepository.cs" root0="SKIP_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/Application/Repositories/RequestManager/RequestManagerRepository.cs" root0="FORCE_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/CreditBureau/AsokiWorker.cs" root0="FORCE_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/CreditBureau/AsokiWorkerXml.cs" root0="FORCE_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/CreditBureau/CreditBureauReportWorker.cs" root0="FORCE_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/CreditBureau/Program.cs" root0="FORCE_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/CreditBureau/appsettings.json" root0="FORCE_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/Domain/Common/Settings/AsokiReportApiOptions.cs" root0="FORCE_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/Infrastructure/CreditRegistration/CreditRegistrationService.cs" root0="FORCE_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/CreditBureauReportService.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/Domain/Common/Settings/LoanHistoryReportApiOptions.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/Domain/obj/project.assets.json" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/Infrastructure/Common/Helpers/Logger/LogWriter.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/Infrastructure/CreditRegistration/CreditRegistrationService.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/Infrastructure/CreditRegistration/ICreditRegistrationService.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/Infrastructure/CreditReports/CreditReportService.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/Infrastructure/CreditReportsXml/CreditReportXmlService.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/Infrastructure/CreditReportsXml/Parsers/LoanHistoryCreditReportXmlParser.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/CreditBureauReportService.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/Handlers/Ci001IndividualRequestHandler.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/Handlers/Ci023SubjectRequestHandler.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/Handlers/DependencyInjection.cs" root0="SKIP_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/Infrastructure/Services/HttpClients/IRequestManagerService.cs" root0="FORCE_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/Infrastructure/Services/HttpClients/RequestManagerService.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/Infrastructure/Services/HttpClients/RequestManagerService.cs" root0="SKIP_HIGHLIGHTING" />
   </component>
   <component name="KubernetesApiPersistence">{}</component>
   <component name="KubernetesApiProvider">{
@@ -79,6 +184,9 @@
     <urls />
   </component>
   <component name="MetaFilesCheckinStateConfiguration" checkMetaFiles="false" />
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="Toolset" />
+  </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 7
 }</component>
@@ -89,14 +197,20 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
-    ".NET Launch Settings Profile.CreditBureau.executor": "Run",
+    ".NET Launch Settings Profile.CreditBureau.executor": "Debug",
     "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "Publish to IIS.Publish CreditBureau to IIS (1).executor": "Run",
+    "Publish to IIS.Publish CreditBureau to IIS.executor": "Run",
     "Publish to folder.Publish CreditBureau to folder.executor": "Run",
     "RunOnceActivity.MCP Project settings loaded": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.cidr.known.project.marker": "true",
     "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.readMode.enableVisualFormatting": "true",
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "cidr.known.project.marker": "true",
+    "codeWithMe.voiceChat.enabledByDefault": "false",
     "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
     "git-widget-placeholder": "qwen",
     "junie.onboarding.icon.badge.shown": "true",
@@ -111,20 +225,33 @@
 }]]></component>
   <component name="RunManager" selected=".NET Launch Settings Profile.CreditBureau">
     <configuration name="Publish CreditBureau to folder" type="DotNetFolderPublish" factoryName="Publish to folder">
-      <riderPublish configuration="Release" delete_existing_files="true" platform="Any CPU" target_folder="$PROJECT_DIR$/CreditBureau/bin/Release/net8.0/publish" target_framework="net8.0" uuid_high="7568107360686720467" uuid_low="-7370693459388361161" />
+      <riderPublish configuration="Release" platform="Any CPU" target_folder="$PROJECT_DIR$/CreditBureau/bin/Release/net8.0/publish" target_framework="net8.0" uuid_high="7568107360686720467" uuid_low="-7370693459388361161">
+        <runtimes>
+          <item value="Portable" />
+        </runtimes>
+      </riderPublish>
+      <method v="2" />
+    </configuration>
+    <configuration name="Publish CreditBureau to IIS (1)" type="DotNetMsBuildPublish" factoryName="Publish to IIS">
+      <riderPublish configuration="Release" platform="Any CPU" publish_profile="&lt;no publish profile&gt;" uuid_high="7568107360686720467" uuid_low="-7370693459388361161" />
+      <method v="2" />
+    </configuration>
+    <configuration name="Publish CreditBureau to IIS" type="DotNetMsBuildPublish" factoryName="Publish to IIS">
+      <riderPublish configuration="Release" platform="Any CPU" publish_profile="&lt;no publish profile&gt;" uuid_high="7568107360686720467" uuid_low="-7370693459388361161" />
       <method v="2" />
     </configuration>
     <configuration name="CreditBureau" type="LaunchSettings" factoryName=".NET Launch Settings Profile">
       <option name="LAUNCH_PROFILE_PROJECT_FILE_PATH" value="$PROJECT_DIR$/CreditBureau/CreditBureau.csproj" />
       <option name="LAUNCH_PROFILE_TFM" value="net8.0" />
       <option name="LAUNCH_PROFILE_NAME" value="CreditBureau" />
-      <option name="USE_EXTERNAL_CONSOLE" value="0" />
       <option name="USE_MONO" value="0" />
       <option name="RUNTIME_ARGUMENTS" value="" />
       <option name="GENERATE_APPLICATIONHOST_CONFIG" value="1" />
       <option name="SHOW_IIS_EXPRESS_OUTPUT" value="0" />
       <option name="SEND_DEBUG_REQUEST" value="1" />
       <option name="ADDITIONAL_IIS_EXPRESS_ARGUMENTS" value="" />
+      <option name="AUTO_ATTACH_CHILDREN" value="0" />
+      <option name="MIXED_MODE_DEBUG" value="0" />
       <method v="2">
         <option name="Build" />
       </method>
@@ -145,7 +272,33 @@
       <workItem from="1774601159054" duration="1874000" />
       <workItem from="1775064910219" duration="6518000" />
       <workItem from="1775111024310" duration="7831000" />
+      <workItem from="1775482880407" duration="4715000" />
+      <workItem from="1775624080028" duration="9526000" />
+      <workItem from="1776053963995" duration="11882000" />
+      <workItem from="1776343368445" duration="3975000" />
+      <workItem from="1776663214433" duration="3817000" />
+      <workItem from="1776835165994" duration="3201000" />
+      <workItem from="1776851371819" duration="285000" />
+      <workItem from="1776851674653" duration="12000" />
+      <workItem from="1776851768746" duration="32236000" />
     </task>
+    <task id="LOCAL-00001" summary="*">
+      <option name="closed" value="true" />
+      <created>1776865654383</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1776865654383</updated>
+    </task>
+    <task id="LOCAL-00002" summary="fix">
+      <option name="closed" value="true" />
+      <created>1776944773026</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1776944773026</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -155,6 +308,9 @@
   <component name="UnityProjectConfiguration" hasMinimizedUI="false" />
   <component name="VcsManagerConfiguration">
     <option name="CLEAR_INITIAL_COMMIT_MESSAGE" value="true" />
+    <MESSAGE value="*" />
+    <MESSAGE value="fix" />
+    <option name="LAST_COMMIT_MESSAGE" value="fix" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -171,6 +327,71 @@
           <properties exception="System.Threading.ThreadAbortException" breakIfHandledByOtherCode="false" displayValue="System.Threading.ThreadAbortException" />
           <option name="timeStamp" value="3" />
         </breakpoint>
+        <line-breakpoint enabled="true" type="DotNet Breakpoints">
+          <url>file://$PROJECT_DIR$/Infrastructure/Services/CreditBureauReportServices/CreditBureauReportService.cs</url>
+          <line>61</line>
+          <properties documentPath="C:\Users\jahongir.a\source\repos\KATM_Online\Infrastructure\Services\CreditBureauReportServices\CreditBureauReportService.cs" containingFunctionPresentation="Method 'SendCi015ByPeriodAsync'">
+            <startOffsets>
+              <option value="2476" />
+            </startOffsets>
+            <endOffsets>
+              <option value="2477" />
+            </endOffsets>
+          </properties>
+          <option name="timeStamp" value="4" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DotNet Breakpoints">
+          <url>file://$PROJECT_DIR$/Infrastructure/CreditReportsXml/CreditReportXmlService.cs</url>
+          <line>30</line>
+          <properties documentPath="C:\Users\jahongir.a\source\repos\KATM_Online\Infrastructure\CreditReportsXml\CreditReportXmlService.cs" containingFunctionPresentation="Method 'CreditReportXml'">
+            <startOffsets>
+              <option value="1598" />
+            </startOffsets>
+            <endOffsets>
+              <option value="1599" />
+            </endOffsets>
+          </properties>
+          <option name="timeStamp" value="15" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DotNet Breakpoints">
+          <url>file://$PROJECT_DIR$/Infrastructure/Services/AsokiXmlServices/AsokiXmlService.cs</url>
+          <line>16</line>
+          <properties documentPath="C:\Users\jahongir.a\source\repos\KATM_Online\Infrastructure\Services\AsokiXmlServices\AsokiXmlService.cs" containingFunctionPresentation="Method 'AsokiProcessingXml'">
+            <startOffsets>
+              <option value="946" />
+            </startOffsets>
+            <endOffsets>
+              <option value="947" />
+            </endOffsets>
+          </properties>
+          <option name="timeStamp" value="17" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DotNet Breakpoints">
+          <url>file://$PROJECT_DIR$/Infrastructure/Services/AsokiServices/AsokiService.cs</url>
+          <line>14</line>
+          <properties documentPath="C:\Users\jahongir.a\source\repos\KATM_Online\Infrastructure\Services\AsokiServices\AsokiService.cs" containingFunctionPresentation="Method 'AsokiProcessing'">
+            <startOffsets>
+              <option value="771" />
+            </startOffsets>
+            <endOffsets>
+              <option value="851" />
+            </endOffsets>
+          </properties>
+          <option name="timeStamp" value="19" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DotNet Breakpoints">
+          <url>file://$PROJECT_DIR$/Application/Repositories/AsokiRepositories/AsokiRepository.cs</url>
+          <line>80</line>
+          <properties documentPath="C:\Users\jahongir.a\source\repos\KATM_Online\Application\Repositories\AsokiRepositories\AsokiRepository.cs" containingFunctionPresentation="Method 'UpdateRequestHistoryXmlStatusAsync'">
+            <startOffsets>
+              <option value="4615" />
+            </startOffsets>
+            <endOffsets>
+              <option value="4686" />
+            </endOffsets>
+          </properties>
+          <option name="timeStamp" value="20" />
+        </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
   </component>

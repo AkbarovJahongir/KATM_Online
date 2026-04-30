@@ -1,4 +1,4 @@
-using CreditBureau.Contracts.CreditReportParser;
+using CreditBureauService.Contracts.CreditReportParser;
 using Domain.Common.DbContext;
 using Microsoft.Data.SqlClient;
 using System.Data;

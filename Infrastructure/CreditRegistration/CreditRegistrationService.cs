@@ -1,10 +1,10 @@
 using Application.CreditRegistration;
 using Application.Repositories.Helpers;
 using Application.Repositories.RequestManager;
-using Application.Repositories.AsokiRepositories;
+using Application.Repositories.CreditBureauRepositories;
 using Application.Repositories.CreditBureauReportRepositories;
-using CreditBureau.Contracts.AsokiLoanApplications;
-using CreditBureau.Contracts.AsokiLoanApplications.CreditRegistration.CreditApplications;
+using CreditBureauService.Contracts.CreditBureauApplications;
+using CreditBureauService.Contracts.CreditBureauApplications.CreditRegistration.CreditApplications;
 using Domain.Common.Constants;
 using Domain.Common.Settings;
 using Infrastructure.Common.Helpers.JsonHelpes;
@@ -15,78 +15,60 @@ using Newtonsoft.Json;
 
 namespace Infrastructure.CreditRegistration
 {
-    public class CreditRegistrationService(ICreditRegistrationRepository repository,
-                                        IRequestManagerService requestManagerService,
-                                        BankHeader bankHeader,
-                                        LogWriter logWriter,
-                                        AsokiApplicationApiOptions asokiApplicationApiOptions,
-                                        IHelperRepository helperRepository,
-                                        IAsokiRepository asokiRepository,
-                                        ICreditBureauReportRepository creditBureauReportRepository,
-                                        ILogger<CreditRegistrationService> logger) : ICreditRegistrationService
+    public class CreditRegistrationService(
+        ICreditRegistrationRepository repository,
+        IRequestManagerService requestManagerService,
+        BankHeader bankHeader,
+        LogWriter logWriter,
+        CreditBureauApiOptions creditBureauApiOptions,
+        IHelperRepository helperRepository,
+        ICreditBureauRepository creditBureauRepository,
+        ICreditBureauReportRepository creditBureauReportRepository,
+        ILogger<CreditRegistrationService> logger) : ICreditRegistrationService
     {
         private readonly IHelperRepository _helperRepository = helperRepository;
         private readonly ICreditRegistrationRepository _repository = repository;
         private readonly IRequestManagerService _requestManagerService = requestManagerService;
         private readonly BankHeader _bankHeader = bankHeader;
         private readonly LogWriter _logWriter = logWriter;
-        private readonly AsokiApplicationApiOptions _asokiApplicationApiOptions = asokiApplicationApiOptions;
-        private readonly IAsokiRepository _asokiRepository = asokiRepository;
+        private readonly CreditBureauApiOptions _creditBureauApiOptions = creditBureauApiOptions;
+        private readonly ICreditBureauRepository _creditBureauRepository = creditBureauRepository;
         private readonly ICreditBureauReportRepository _creditBureauReportRepository = creditBureauReportRepository;
         private readonly ILogger<CreditRegistrationService> _logger = logger;
+
         public async Task SenderClaimsAsync(LoanApplication loanApplications, CancellationToken cancellationToken)
         {
-            _logWriter.Log("CreditRegistrationIndividual.txt", $"KeyAbsLoan:ClaimId:{loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyLoanHistoryKb} START");
+            _logWriter.Log("CreditRegistrationIndividual.txt",
+                $"KeyAbsLoan:ClaimId:{loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyCreditBureauKb} START");
             if (loanApplications.ApplicationsSubjectType == "0") // Физ. лицо
             {
-                if (int.TryParse(loanApplications.KeyLoanHistoryKb, out int loanKey))
-                {
-                    var ci001Status = await _creditBureauReportRepository.GetCi001StatusAsync(loanKey, cancellationToken);
-                    if (ci001Status == 1)
-                    {
-                        await _asokiRepository.UpdateRequestHistoryXmlStatusAsync(loanApplications.KeyLoanHistoryKb, "02", cancellationToken);
-                    }
-                }
+                await _creditBureauRepository.UpdateRequestHistoryStatusAsync(
+                    loanApplications.KeyCreditBureauKb, "02", cancellationToken);
             }
             else
             {
-                if (int.TryParse(loanApplications.KeyLoanHistoryKb, out int loanKey))
-                {
-                    var ci002Status = await _creditBureauReportRepository.GetCi002StatusAsync(loanKey, cancellationToken);
-                    if (ci002Status == 1)
-                    {
-                        await _asokiRepository.UpdateRequestHistoryXmlStatusAsync(loanApplications.KeyLoanHistoryKb, "02", cancellationToken);
-                    }
-                }
+                await _creditBureauRepository.UpdateRequestHistoryStatusAsync(
+                    loanApplications.KeyCreditBureauKb, "02", cancellationToken);
             }
+
             _logWriter.Log("CreditRegistrationIndividual.txt", $" END END\t");
         }
 
         public async Task SenderClaimsXmlAsync(LoanApplication loanApplications, CancellationToken cancellationToken)
         {
-            _logWriter.Log("CreditRegistrationIndividualXml.txt", $"KeyAbsLoan:ClaimId:{loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyLoanHistoryKb} START");
+            _logWriter.Log("CreditRegistrationIndividualXml.txt",
+                $"KeyAbsLoan:ClaimId:{loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyCreditBureauKb} START");
             if (loanApplications.ApplicationsSubjectType == "0") // Физ. лицо
             {
-                // if (int.TryParse(loanApplications.KeyLoanHistoryKb, out int loanKey))
-                // {
-                //     var ci001Status = await _creditBureauReportRepository.GetCi001StatusAsync(loanKey, cancellationToken);
-                //     if (ci001Status == 1)
-                //     {
-                        await _asokiRepository.UpdateRequestHistoryXmlStatusAsync(loanApplications.KeyLoanHistoryKb, "02", cancellationToken);
-                    //}
-                //}
+                await _creditBureauRepository.UpdateRequestHistoryXmlStatusAsync(loanApplications.KeyCreditBureauKb,
+                    "02", cancellationToken);
             }
             else
             {
-                if (int.TryParse(loanApplications.KeyLoanHistoryKb, out int loanKey))
-                {
-                    var ci002Status = await _creditBureauReportRepository.GetCi002StatusAsync(loanKey, cancellationToken);
-                    if (ci002Status == 1)
-                    {
-                        await _asokiRepository.UpdateRequestHistoryXmlStatusAsync(loanApplications.KeyLoanHistoryKb, "02", cancellationToken);
-                    }
-                }
+                await _creditBureauRepository.UpdateRequestHistoryXmlStatusAsync(loanApplications.KeyCreditBureauKb,
+                    "02", cancellationToken);
             }
+
             _logWriter.Log("CreditRegistrationIndividual.txt", $" END END\t");
         }
     }

@@ -366,3 +366,15 @@ FodyWeavers.xsd
 
 # Old/refactored files
 *.old.cs
+*.idea
+*.dotnet
+
+# Local workspace artifacts
+/.dotnet/
+/.idea/
+/AGENTS.md
+/msbuild.log
+/CreditBureau*.txt
+/CreditBureauEmergencyLog.txt
+/CreditBureauRequestManager.txt
+/CreditBureauWorkerServerState*.txt

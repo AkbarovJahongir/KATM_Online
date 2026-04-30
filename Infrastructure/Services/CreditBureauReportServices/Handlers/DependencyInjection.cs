@@ -1,8 +1,8 @@
 using Infrastructure.CreditRegistration;
 using Infrastructure.CreditReports;
 using Infrastructure.CreditReportsXml;
-using Infrastructure.Services.AsokiServices;
-using Infrastructure.Services.AsokiXmlServices;
+using Infrastructure.Services.CreditBureauServices;
+using Infrastructure.Services.CreditBureauXmlServices;
 using Infrastructure.Services.CreditBureauReportServices;
 using Infrastructure.Services.CreditBureauReportServices.Handlers;
 using Infrastructure.Services.HttpClients;
@@ -19,8 +19,8 @@ namespace Infrastructure
             services.AddSingleton<ICreditRegistrationService, CreditRegistrationService>();
             services.AddSingleton<IRequestManagerService, RequestManagerService>();
             services.AddSingleton<ITelegramNotificationService, TelegramNotificationService>();
-            services.AddSingleton<IAsokiXmlService, AsokiXmlService>();
-            services.AddSingleton<IAsokiService, AsokiService>();
+            services.AddSingleton<ICreditBureauXmlService, LoanProcessingXmlService>();
+            services.AddSingleton<ICreditBureauService, LoanProcessingService>();
             services.AddSingleton<ICreditReportXmlService, CreditReportXmlService>();
 
             // Обработчики CI-запросов

@@ -1,4 +1,4 @@
-﻿using CreditBureau.Contracts.CreditReportParser;
+using CreditBureauService.Contracts.CreditReportParser;
 
 namespace Application.Repositories.CreditReportXmlParserRepositories;
 
