@@ -216,20 +216,9 @@ public interface ICreditBureauReportRepository
     /// </summary>
     public Task<List<CreditBureauReportQueueItem<CreditRegistrationSubjectRequest>>>
         GetCreditRegistrationSubjectRequestsAsync(CancellationToken cancellationToken);
-    /// <summary>
-    /// Получить займы для запроса кредитного отчёта (CI-017),
-    /// для которых ci001 = 1 или ci002 = 1, и ci017 ещё не отправлен (token отсутствует).
-    /// </summary>
-    public Task<List<CreditReportQueueItem>>
-        GetCreditReportRequestsAsync(CancellationToken cancellationToken);
+    Task<int> GetCi017AttemptCountAsync(int loanKey, CancellationToken cancellationToken);
 
-    /// <summary>
-    /// Получить займы, ожидающие результата кредитного отчёта (CI-017 polling):
-    /// ci017 = 0 и ci017Token уже получен (ответ 05050 был).
-    /// </summary>
-    public Task<List<CreditReportQueueItem>>
-        GetCreditReportPollRequestsAsync(CancellationToken cancellationToken);
-
+    Task IncrementCi017AttemptAsync(int loanKey, CancellationToken cancellationToken);
 
     public Task UpsertCiStatusAsync(
         int loanKey,
@@ -256,7 +245,7 @@ public interface ICreditBureauReportRepository
     public Task<byte?> GetCreditBureau002StatusAsync(int loanKey, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Получить APP (App_old) и Customer_ID (ID) из таблицы Loan по LoanKey
+    /// Получить APP (App) и Customer_ID из таблицы Loan по LoanKey (через JOIN с Loan_History_KB)
     /// </summary>
     Task<(string? App, string? CustomerId)> GetLoanAppAndCustomerIdAsync(int loanKey, CancellationToken cancellationToken);
 }

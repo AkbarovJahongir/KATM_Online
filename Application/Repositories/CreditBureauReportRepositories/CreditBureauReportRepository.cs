@@ -893,55 +893,31 @@ public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : I
             PDate = GetString(reader, "pDate"),              // [ДатаОтправки]
         };
     }
-    public async Task<List<CreditReportQueueItem>>
-    GetCreditReportRequestsAsync(CancellationToken cancellationToken)
+    public async Task<int> GetCi017AttemptCountAsync(int loanKey, CancellationToken cancellationToken)
     {
-        using var connection = new SqlConnection(_databaseSettings.DBConnection);
-        using var command = new SqlCommand("SELECT * FROM [dbo].[KATM_Report_017]()", connection);
+        using var connection = new SqlConnection(_databaseSettings.CIBConnection);
+        using var command = new SqlCommand(
+            "SELECT ISNULL(ci017Attempt, 0) FROM [dbo].[Katm_Methods_Request] WHERE [loanKey] = @loanKey",
+            connection);
+        command.Parameters.AddWithValue("@loanKey", loanKey);
         await connection.OpenAsync(cancellationToken);
-        using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        var result = new List<CreditReportQueueItem>();
-        while (await reader.ReadAsync(cancellationToken))
-        {
-            result.Add(new CreditReportQueueItem
-            {
-                LoanKey = GetInt(reader, "loanKey") ?? 0,
-                PClaimId = GetString(reader, "pClaimId"),              // [УникальныйIDЗаявки]
-                PReportId = GetString(reader, "pReportId"),             // [IDОтчёта]
-                PLoanSubject = GetString(reader, "pLoanSubject"),          // [ТипСубъекта] A18
-                PLoanSubjectType = GetString(reader, "pLoanSubjectType"),      // [ПодтипСубъекта] A18
-                PPin = GetString(reader, "pPin"),                  // [ПИНФЛ] для физлиц
-                PTin = GetString(reader, "pTin"),                  // [ИНН] для юрлиц
-                PReportFormat = GetInt(reader, "pReportFormat") ?? 0, // [ФорматОтчёта]
-                PReportReason = GetInt(reader, "pReportReason") ?? 1,         // [ЦельИзучения] v9.15
-                PToken = GetString(reader, "pToken"),                // [KATM-SIR] если есть
-            });
-        }
+        var result = await command.ExecuteScalarAsync(cancellationToken);
         await connection.CloseAsync();
-        return result;
+        return result == DBNull.Value ? 0 : Convert.ToInt32(result);
     }
 
-    public async Task<List<CreditReportQueueItem>>
-        GetCreditReportPollRequestsAsync(CancellationToken cancellationToken)
+    public async Task IncrementCi017AttemptAsync(int loanKey, CancellationToken cancellationToken)
     {
-        using var connection = new SqlConnection(_databaseSettings.DBConnection);
-        using var command = new SqlCommand("SELECT * FROM [dbo].[KATM_Report_017_Poll]()", connection);
+        using var connection = new SqlConnection(_databaseSettings.CIBConnection);
+        using var command = new SqlCommand(
+            "UPDATE [dbo].[Katm_Methods_Request] SET ci017Attempt = ISNULL(ci017Attempt, 0) + 1 WHERE [loanKey] = @loanKey",
+            connection);
+        command.Parameters.AddWithValue("@loanKey", loanKey);
         await connection.OpenAsync(cancellationToken);
-        using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        var result = new List<CreditReportQueueItem>();
-        while (await reader.ReadAsync(cancellationToken))
-        {
-            result.Add(new CreditReportQueueItem
-            {
-                LoanKey = GetInt(reader, "loanKey") ?? 0,
-                PClaimId = GetString(reader, "pClaimId"),           // [УникальныйIDЗаявки]
-                PToken = GetString(reader, "pToken"),             // [ТокенДляОпроса] (05050)
-                PReportFormat = GetInt(reader, "pReportFormat") ?? 0, // [ФорматОтчёта]
-            });
-        }
+        await command.ExecuteNonQueryAsync(cancellationToken);
         await connection.CloseAsync();
-        return result;
     }
+
     public async Task UpsertCiStatusAsync(
         int loanKey,
         int ciCode,
@@ -994,9 +970,10 @@ public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : I
     {
         using var connection = new SqlConnection(_databaseSettings.DBConnection);
         using var command = new SqlCommand(
-            @"SELECT TOP 1 la.App_old, la.ID
+            @"SELECT TOP 1 la.App, la.Customer_ID
               FROM Loan la
-              WHERE la.keyLoanHistoryKb = CAST(@LoanKey AS NVARCHAR(64))",
+              INNER JOIN Loan_History_KB lhk ON la.App = lhk.App
+              WHERE lhk.[key] = CAST(@LoanKey AS NVARCHAR(64))",
             connection);
 
         command.Parameters.Add("@LoanKey", SqlDbType.Int).Value = loanKey;
@@ -1009,8 +986,8 @@ public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : I
 
         if (await reader.ReadAsync(cancellationToken))
         {
-            app = reader["App_old"] is DBNull ? null : reader["App_old"].ToString();
-            customerId = reader["ID"] is DBNull ? null : reader["ID"].ToString();
+            app = reader["App"] is DBNull ? null : reader["App"].ToString();
+            customerId = reader["Customer_ID"] is DBNull ? null : reader["Customer_ID"].ToString();
         }
 
         await connection.CloseAsync();

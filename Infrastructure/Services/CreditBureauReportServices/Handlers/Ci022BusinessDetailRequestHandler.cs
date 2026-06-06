@@ -48,6 +48,7 @@ public class Ci022BusinessDetailRequestHandler : CiHandlerBase<CreditRegistratio
             {
                 result.Error++;
                 Logger.LogWarning("CI-{CiCode} skipped due to null request. LoanKey={LoanKey}", CiCode, item.LoanKey);
+                await NotifyErrorAsync($"CI-{CiCode:D3} null request", item.LoanKey, "Request data is null", cancellationToken);
                 await CreditBureauReportRepository.UpsertCiStatusAsync(
                     item.LoanKey, CiCode, 2, "CI-022 request is null", null, cancellationToken);
                 continue;

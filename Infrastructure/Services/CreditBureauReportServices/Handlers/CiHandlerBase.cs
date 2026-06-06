@@ -82,6 +82,11 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
             {
                 result.Error++;
                 Logger.LogWarning("CI-{CiCode} skipped due to null request. LoanKey={LoanKey}", CiCode, item.LoanKey);
+                await NotifyErrorAsync(
+                    $"CI-{CiCode:D3} null request",
+                    item.LoanKey,
+                    "Request data is null",
+                    cancellationToken);
                 await CreditBureauReportRepository.UpsertCiStatusAsync(
                     item.LoanKey, CiCode, 2, $"CI-{CiCode:D3} request is null", null, cancellationToken);
                 continue;
@@ -261,7 +266,7 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
         }
 
         var requestInfo = _currentRequestJson is not null
-            ? $"\nRequest: {GetResponsePreview(_currentRequestJson, 1500)}"
+            ? $"\nRequest: {GetResponsePreview(RedactSecurity(_currentRequestJson), 1500)}"
             : string.Empty;
 
         var (app, customerId) = await CreditBureauReportRepository.GetLoanAppAndCustomerIdAsync(loanKey, cancellationToken);
@@ -272,6 +277,23 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
             app,
             customerId,
             cancellationToken);
+    }
+
+    private static string RedactSecurity(string json)
+    {
+        try
+        {
+            var obj = Newtonsoft.Json.Linq.JObject.Parse(json);
+            if (obj["security"] is not null)
+            {
+                obj["security"] = "REDACTED";
+            }
+            return obj.ToString(Newtonsoft.Json.Formatting.None);
+        }
+        catch
+        {
+            return json;
+        }
     }
 
     /// <summary>

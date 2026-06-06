@@ -10,6 +10,7 @@ using Infrastructure.Common.Helpers.JsonHelpes;
 using Infrastructure.Common.Helpers.Logger;
 using Infrastructure.CreditReportsXml.Parsers;
 using Infrastructure.Services.HttpClients;
+using Infrastructure.Services.Notifications;
 using Newtonsoft.Json;
 
 namespace Infrastructure.CreditReportsXml
@@ -22,7 +23,8 @@ namespace Infrastructure.CreditReportsXml
         IHelperRepository helperRepository,
         ICreditReportXmlParser creditReportXmlParser,
         IRequestManagerRepository requestManagerRepository,
-        ICreditBureauReportRepository creditBureauReportRepository) : ICreditReportXmlService
+        ICreditBureauReportRepository creditBureauReportRepository,
+        ITelegramNotificationService telegramNotificationService) : ICreditReportXmlService
     {
         private readonly IHelperRepository _helperRepository = helperRepository;
         private readonly ICreditReportXmlParser _creditReportXmlParser = creditReportXmlParser;
@@ -32,16 +34,12 @@ namespace Infrastructure.CreditReportsXml
         private readonly LogWriter _logWriter = logWriter;
         private readonly IRequestManagerRepository _requestManagerRepository = requestManagerRepository;
         private readonly ICreditBureauReportRepository _creditBureauReportRepository = creditBureauReportRepository;
+        private readonly ITelegramNotificationService _telegramNotificationService = telegramNotificationService;
         private const string CreditReport017FullLogFile = "CreditReport017Full.txt";
         public async Task CreditReportXml(LoanApplication loanApplications, CancellationToken cancellationToken)
         {
             try
             {
-                if (loanApplications.QuantitySelected >= 5)
-                {
-                    await _helperRepository.KatmHelperXml(loanApplications.KeyCreditBureauKb, "Запрос был отправлен больше 5 раз и не был правильно обработан!", IHelperRepository.TypeOperation.Error, cancellationToken);
-                    return;
-                }
                 // подготавливаем запрос
                 var creditReportRequest = new CreditReportRequest()
                 {
@@ -88,7 +86,10 @@ namespace Infrastructure.CreditReportsXml
                     CreditReport017FullLogFile,
                     $"Type: CI-017 XML Response\nKeyLoanHistoryKb: {loanApplications.KeyCreditBureauKb}\nClaimId: {loanApplications.PClaimId}\n{response}");
                 if (string.IsNullOrWhiteSpace(response))
+                {
+                    await NotifyErrorAsync("CI-017 XML empty response", loanApplications, "API вернул пустой ответ", cancellationToken);
                     return;
+                }
                 var baseResponse = JsonConvert.DeserializeObject<BaseResponse<CreditReportResponse>>(response);
                 _logWriter.Log("CreditReportResponseXml.txt", $"KeyAbsLoan:ClaimId: {loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyCreditBureauKb} - {DateTime.Now}\n\n" + baseResponse?.ToJSON());
                 // Проверяем запрос
@@ -133,11 +134,11 @@ namespace Infrastructure.CreditReportsXml
                 // Claim not found - Заявка не найдена
                 else if (baseResponse?.data?.result == CreditBureauResultCodes.NO_TOKEN_FOUND)
                 {
-                    // Проверяем токен если токен не существует то записываем ошибку
                     if (string.IsNullOrEmpty(baseResponse.data.token))
                     {
                         await _helperRepository.KatmHelperXml(loanApplications.KeyCreditBureauKb, "Заявка не найдена!", IHelperRepository.TypeOperation.Error, cancellationToken);
                         await _creditBureauReportRepository.UpsertCiStatusAsync(int.Parse(loanApplications.KeyCreditBureauKb), 17, 2, "Claim not found", null, cancellationToken);
+                        await NotifyErrorAsync("CI-017 XML API error", loanApplications, $"Message: Заявка не найдена\nResult: {baseResponse.data.result}", cancellationToken);
                         return;
                     }
                 }
@@ -145,26 +146,25 @@ namespace Infrastructure.CreditReportsXml
                 {
                     await _helperRepository.KatmHelperXml(loanApplications.KeyCreditBureauKb, 5.ToJSON(), IHelperRepository.TypeOperation.AddNextAccess, cancellationToken);
                     await _creditBureauReportRepository.UpsertCiStatusAsync(int.Parse(loanApplications.KeyCreditBureauKb), 17, 2, "Identical request", null, cancellationToken);
+                    await NotifyErrorAsync("CI-017 XML API error", loanApplications, $"Message: Идентичный запрос\nResult: {baseResponse.data.result}", cancellationToken);
                 }
                 else if (baseResponse?.data?.result == CreditBureauResultCodes.FREEZE_SERVICE_ACTIVE)
                 {
                     await _helperRepository.KatmHelperXml(loanApplications.KeyCreditBureauKb, "Субъект не дает согласия на получение кредитной истории, подключена услуга Freeze. Субъекту необходимо отключить услугу Freeze.", IHelperRepository.TypeOperation.Error, cancellationToken);
                     await _creditBureauReportRepository.UpsertCiStatusAsync(int.Parse(loanApplications.KeyCreditBureauKb), 17, 2, "Freeze service active", null, cancellationToken);
+                    await NotifyErrorAsync("CI-017 XML API error", loanApplications, $"Message: Freeze service active\nResult: {baseResponse.data.result}", cancellationToken);
                 }
             }
             catch (Exception ex)
             {
-                // Обработка ошибку если Попытка установить соединение была безуспешной, т.к.
                 _logWriter.Log("CreditReportCatchXml.txt", $"KeyAbsLoan:ClaimId: {loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyCreditBureauKb} - {DateTime.Now}\n\n" + ex.Message);
+                await NotifyErrorAsync("CI-017 XML processing exception", loanApplications, $"Message: {ex.Message}\nStackTrace: {ex.StackTrace}", cancellationToken);
                 return;
             }
         }
         public async Task CreditReportStatusXml(LoanApplication loanApplications, CancellationToken cancellationToken)
         {
-            var maxAttempts = 5;
-            var attempts = loanApplications.QuantitySelected ?? 0;
-
-            while (attempts < maxAttempts && !cancellationToken.IsCancellationRequested)
+            while (!cancellationToken.IsCancellationRequested)
             {
                 try
                 {
@@ -208,7 +208,10 @@ namespace Infrastructure.CreditReportsXml
                         CreditReport017FullLogFile,
                         $"Type: CI-017 XML Status Response\nKeyLoanHistoryKb: {loanApplications.KeyCreditBureauKb}\nClaimId: {loanApplications.PClaimId}\n{response}");
                     if (string.IsNullOrWhiteSpace(response))
+                    {
+                        await NotifyErrorAsync("CI-017 XML status empty response", loanApplications, "API вернул пустой ответ при проверке статуса", cancellationToken);
                         return;
+                    }
 
                     var baseResponse = JsonConvert.DeserializeObject<BaseResponse<CreditReportStatusResponse>>(response);
                     _logWriter.Log("CreditReportStatusResponseXml.txt", $"KeyAbsLoan:ClaimId: {loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyCreditBureauKb} - {DateTime.Now}\n\n" + baseResponse?.ToJSON());
@@ -237,25 +240,35 @@ namespace Infrastructure.CreditReportsXml
                     }
                     else if (baseResponse.data.result == CreditBureauResultCodes.WAIT_AND_TRY_AGAIN)
                     {
-                        attempts++;
                         await _helperRepository.KatmHelperXml(loanApplications.KeyCreditBureauKb, 1.ToJSON(), IHelperRepository.TypeOperation.AddNextAccess, cancellationToken);
                         await _creditBureauReportRepository.UpsertCiStatusAsync(int.Parse(loanApplications.KeyCreditBureauKb), 17, 0, "Waiting", loanApplications.PToken, cancellationToken);
-
-                        if (attempts >= maxAttempts)
-                        {
-                            await _helperRepository.KatmHelperXml(loanApplications.KeyCreditBureauKb, "Запрос был отправлени больше 5 раз и не был правильно обработан!", IHelperRepository.TypeOperation.Error, cancellationToken);
-                            return;
-                        }
-
                         await Task.Delay(_options.CheckReportStatusInterval, cancellationToken);
+                    }
+                    else
+                    {
+                        return;
                     }
                 }
                 catch (Exception ex)
                 {
                     _logWriter.Log("CreditReportStatusResponseXml.txt", $"KeyAbsLoan:ClaimId: {loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyCreditBureauKb} - {DateTime.Now}\n\n" + ex.Message);
+                    await NotifyErrorAsync("CI-017 XML status processing exception", loanApplications, $"Message: {ex.Message}\nStackTrace: {ex.StackTrace}", cancellationToken);
                     return;
                 }
             }
+        }
+
+        private async Task NotifyErrorAsync(string source, LoanApplication loan, string details, CancellationToken cancellationToken)
+        {
+            var (app, customerId) = await _creditBureauReportRepository.GetLoanAppAndCustomerIdAsync(
+                int.Parse(loan.KeyCreditBureauKb), cancellationToken);
+
+            await _telegramNotificationService.NotifyErrorAsync(
+                source,
+                $"LoanKey: {loan.KeyCreditBureauKb}\nClaimId: {loan.PClaimId}\nDetails: {details}",
+                app,
+                customerId,
+                cancellationToken);
         }
     }
 }

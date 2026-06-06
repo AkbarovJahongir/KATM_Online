@@ -49,6 +49,7 @@ public class Ci016BankDetailRequestHandler : CiHandlerBase<CreditRegistrationBan
                 result.Error++;
                 result.AddDetail(item.LoanKey, false, "CI-016 request is null");
                 Logger.LogWarning("CI-{CiCode} skipped due to null request. LoanKey={LoanKey}", CiCode, item.LoanKey);
+                await NotifyErrorAsync($"CI-{CiCode:D3} null request", item.LoanKey, "Request data is null", cancellationToken);
                 await CreditBureauReportRepository.UpsertCiStatusAsync(
                     item.LoanKey, CiCode, 2, "CI-016 request is null", null, cancellationToken);
                 continue;
@@ -172,6 +173,7 @@ public class Ci016BankDetailRequestHandler : CiHandlerBase<CreditRegistrationBan
                 result.Error++;
                 result.AddDetail(item.LoanKey, false, "CI-016 request is null");
                 Logger.LogWarning("CI-{CiCode} skipped due to null request. LoanKey={LoanKey}", CiCode, item.LoanKey);
+                await NotifyErrorAsync($"CI-{CiCode:D3} null request", item.LoanKey, "Request data is null", cancellationToken);
                 await CreditBureauReportRepository.UpsertCiStatusAsync(
                     item.LoanKey, CiCode, 2, "CI-016 request is null", null, cancellationToken);
                 continue;

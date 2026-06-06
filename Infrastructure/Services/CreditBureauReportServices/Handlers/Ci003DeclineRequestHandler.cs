@@ -50,6 +50,7 @@ public class Ci003DeclineRequestHandler : CiHandlerBase<CreditRegistrationDeclin
             {
                 result.Error++;
                 Logger.LogWarning("CI-{CiCode} skipped due to null request. LoanKey={LoanKey}", CiCode, item.LoanKey);
+                await NotifyErrorAsync($"CI-{CiCode:D3} null request", item.LoanKey, "Request data is null", cancellationToken);
                 await CreditBureauReportRepository.UpsertCiStatusAsync(
                     item.LoanKey, CiCode, 2, "CI-003 request is null", null, cancellationToken);
                 continue;
@@ -71,6 +72,7 @@ public class Ci003DeclineRequestHandler : CiHandlerBase<CreditRegistrationDeclin
                 if (string.IsNullOrWhiteSpace(response))
                 {
                     result.Error++;
+                    await NotifyErrorAsync($"CI-{CiCode:D3} empty response", item.LoanKey, "API returned empty response", cancellationToken);
                     await CreditBureauReportRepository.UpsertCiStatusAsync(
                         item.LoanKey, CiCode, 2, "CI-003 returned empty response", null, cancellationToken);
                     continue;
