@@ -247,5 +247,5 @@ public interface ICreditBureauReportRepository
     /// <summary>
     /// Получить APP (App) и Customer_ID из таблицы Loan по LoanKey (через JOIN с Loan_History_KB)
     /// </summary>
-    Task<(string? App, string? CustomerId)> GetLoanAppAndCustomerIdAsync(int loanKey, CancellationToken cancellationToken);
+    Task<(string? App, string? CustomerId)> GetLoanAppAndCustomerIdAsync(string loanKey, CancellationToken cancellationToken);
 }

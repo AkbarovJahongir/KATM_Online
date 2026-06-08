@@ -220,7 +220,7 @@ namespace Infrastructure.Services.HttpClients
                 DateTime dateResponse = DateTime.Now;
                 _logger.LogError(ex, "LoanKey:{LoanKey}. POST request failed", LoanKey);
                 _logWriter.Log("RequestManager.txt", $"LoanKey:{LoanKey}. POST request failed: {ex.Message}");
-                var (app3, customerId3) = await _creditBureauReportRepository.GetLoanAppAndCustomerIdAsync(LoanKey, cancellationToken);
+                var (app3, customerId3) = await _creditBureauReportRepository.GetLoanAppAndCustomerIdAsync(LoanKey.ToString(), cancellationToken);
                 await _telegramNotificationService.NotifyErrorAsync(
                     "RequestManagerService POST request failed",
                     $"LoanKey: {LoanKey}\nUrl: {url}\nMessage: {ex.Message}\nException: {ex}",
@@ -250,12 +250,7 @@ namespace Infrastructure.Services.HttpClients
 
         private async Task<(string? App, string? CustomerId)> FetchAppAndCustomerId(string keyLoanHistoryKb, CancellationToken cancellationToken)
         {
-            if (int.TryParse(keyLoanHistoryKb, out var loanKey))
-            {
-                return await _creditBureauReportRepository.GetLoanAppAndCustomerIdAsync(loanKey, cancellationToken);
-            }
-
-            return (null, null);
+            return await _creditBureauReportRepository.GetLoanAppAndCustomerIdAsync(keyLoanHistoryKb, cancellationToken);
         }
     }
 }

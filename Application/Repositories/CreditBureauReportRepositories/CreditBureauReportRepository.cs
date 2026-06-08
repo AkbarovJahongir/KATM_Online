@@ -966,17 +966,17 @@ public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : I
         return result == DBNull.Value ? null : Convert.ToByte(result);
     }
 
-    public async Task<(string? App, string? CustomerId)> GetLoanAppAndCustomerIdAsync(int loanKey, CancellationToken cancellationToken)
+    public async Task<(string? App, string? CustomerId)> GetLoanAppAndCustomerIdAsync(string loanKey, CancellationToken cancellationToken)
     {
         using var connection = new SqlConnection(_databaseSettings.DBConnection);
         using var command = new SqlCommand(
             @"SELECT TOP 1 la.App, la.Customer_ID
               FROM Loan la
               INNER JOIN Loan_History_KB lhk ON la.App = lhk.App
-              WHERE lhk.[key] = CAST(@LoanKey AS NVARCHAR(64))",
+              WHERE lhk.[key] = @LoanKey",
             connection);
 
-        command.Parameters.Add("@LoanKey", SqlDbType.Int).Value = loanKey;
+        command.Parameters.Add("@LoanKey", SqlDbType.NVarChar, 64).Value = loanKey;
 
         await connection.OpenAsync(cancellationToken);
         using var reader = await command.ExecuteReaderAsync(cancellationToken);

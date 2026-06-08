@@ -11,6 +11,7 @@ using Infrastructure.Common.Helpers.Logger;
 using Infrastructure.Services.HttpClients;
 using Infrastructure.Services.Notifications;
 using Newtonsoft.Json;
+using System.Collections.Concurrent;
 
 namespace Infrastructure.CreditReports
 {
@@ -34,13 +35,18 @@ namespace Infrastructure.CreditReports
         private readonly ITelegramNotificationService _telegramNotificationService = telegramNotificationService;
         private const string CreditReport017FullLogFile = "CreditReport017Full.txt";
         private const int MaxCi017Attempts = 10;
+        private readonly ConcurrentDictionary<int, byte> _notifiedMaxAttempts = new();
+
         public async Task CreditReport(LoanApplication loanApplications, CancellationToken cancellationToken)
         {
             var loanKey = int.Parse(loanApplications.KeyCreditBureauKb);
             var attemptCount = await _creditBureauReportRepository.GetCi017AttemptCountAsync(loanKey, cancellationToken);
             if (attemptCount >= MaxCi017Attempts)
             {
-                await NotifyErrorAsync("CI-017 max attempts", loanApplications, $"Max attempts ({MaxCi017Attempts}) reached", cancellationToken);
+                if (_notifiedMaxAttempts.TryAdd(loanKey, 0))
+                {
+                    await NotifyErrorAsync("CI-017 max attempts", loanApplications, $"Max attempts ({MaxCi017Attempts}) reached", cancellationToken);
+                }
                 await _creditBureauReportRepository.UpsertCiStatusAsync(loanKey, 17, 2, $"Max attempts ({MaxCi017Attempts}) reached", null, cancellationToken);
                 return;
             }
@@ -97,7 +103,6 @@ namespace Infrastructure.CreditReports
 
                 if (string.IsNullOrWhiteSpace(response))
                 {
-                    await NotifyErrorAsync("CI-017 empty response", loanApplications, "API вернул пустой ответ", cancellationToken);
                     return;
                 }
                 var baseResponse = JsonConvert.DeserializeObject<BaseResponse<CreditReportResponse>>(response);
@@ -138,7 +143,6 @@ namespace Infrastructure.CreditReports
                     {
                         await _helperRepository.KatmHelper(loanApplications.KeyCreditBureauKb, "Заявка не найдена!", IHelperRepository.TypeOperation.Error, cancellationToken);
                         await _creditBureauReportRepository.UpsertCiStatusAsync(int.Parse(loanApplications.KeyCreditBureauKb), 17, 2, "Claim not found", null, cancellationToken);
-                        await NotifyErrorAsync("CI-017 API error", loanApplications, $"Message: Заявка не найдена\nResult: {baseResponse.data.result}", cancellationToken);
                         return;
                     }
                 }
@@ -146,19 +150,16 @@ namespace Infrastructure.CreditReports
                 {
                     await _helperRepository.KatmHelper(loanApplications.KeyCreditBureauKb, 5.ToJSON(), IHelperRepository.TypeOperation.AddNextAccess, cancellationToken);
                     await _creditBureauReportRepository.UpsertCiStatusAsync(int.Parse(loanApplications.KeyCreditBureauKb), 17, 2, "Identical request", null, cancellationToken);
-                    await NotifyErrorAsync("CI-017 API error", loanApplications, $"Message: Идентичный запрос\nResult: {baseResponse.data.result}", cancellationToken);
                 }
                 else if (baseResponse?.data?.result == CreditBureauResultCodes.FREEZE_SERVICE_ACTIVE)
                 {
                     await _helperRepository.KatmHelper(loanApplications.KeyCreditBureauKb, "Субъект не дает согласия на получение кредитной истории, подключена услуга Freeze. Субъекту необходимо отключить услугу Freeze.", IHelperRepository.TypeOperation.Error, cancellationToken);
                     await _creditBureauReportRepository.UpsertCiStatusAsync(int.Parse(loanApplications.KeyCreditBureauKb), 17, 2, "Freeze service active", null, cancellationToken);
-                    await NotifyErrorAsync("CI-017 API error", loanApplications, $"Message: Freeze service active\nResult: {baseResponse.data.result}", cancellationToken);
                 }
             }
             catch (Exception ex)
             {
                 _logWriter.Log("CreditReportCatch.txt", $"KeyAbsLoan:ClaimId: {loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyCreditBureauKb} - {DateTime.Now}\n\n" + ex.Message);
-                await NotifyErrorAsync("CI-017 processing exception", loanApplications, $"Message: {ex.Message}\nStackTrace: {ex.StackTrace}", cancellationToken);
                 return;
             }
         }
@@ -171,7 +172,10 @@ namespace Infrastructure.CreditReports
                 var attemptCount = await _creditBureauReportRepository.GetCi017AttemptCountAsync(loanKey, cancellationToken);
                 if (attemptCount >= MaxCi017Attempts)
                 {
-                    await NotifyErrorAsync("CI-017 max attempts", loanApplications, $"Max attempts ({MaxCi017Attempts}) reached", cancellationToken);
+                    if (_notifiedMaxAttempts.TryAdd(loanKey, 0))
+                    {
+                        await NotifyErrorAsync("CI-017 max attempts", loanApplications, $"Max attempts ({MaxCi017Attempts}) reached", cancellationToken);
+                    }
                     await _creditBureauReportRepository.UpsertCiStatusAsync(loanKey, 17, 2, $"Max attempts ({MaxCi017Attempts}) reached", null, cancellationToken);
                     return;
                 }
@@ -222,7 +226,6 @@ namespace Infrastructure.CreditReports
 
                     if (string.IsNullOrWhiteSpace(response))
                     {
-                        await NotifyErrorAsync("CI-017 status empty response", loanApplications, "API вернул пустой ответ при проверке статуса", cancellationToken);
                         return;
                     }
 
@@ -255,7 +258,6 @@ namespace Infrastructure.CreditReports
                 catch (Exception ex)
                 {
                     _logWriter.Log("CreditReportStatusResponse.txt", $"KeyAbsLoan:ClaimId: {loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyCreditBureauKb} - {DateTime.Now}\n\n" + ex.Message);
-                    await NotifyErrorAsync("CI-017 status processing exception", loanApplications, $"Message: {ex.Message}\nStackTrace: {ex.StackTrace}", cancellationToken);
                     return;
                 }
             }
@@ -264,7 +266,7 @@ namespace Infrastructure.CreditReports
         private async Task NotifyErrorAsync(string source, LoanApplication loan, string details, CancellationToken cancellationToken)
         {
             var (app, customerId) = await _creditBureauReportRepository.GetLoanAppAndCustomerIdAsync(
-                int.Parse(loan.KeyCreditBureauKb), cancellationToken);
+                loan.KeyCreditBureauKb, cancellationToken);
 
             await _telegramNotificationService.NotifyErrorAsync(
                 source,

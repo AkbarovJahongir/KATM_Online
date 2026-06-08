@@ -36,6 +36,7 @@ namespace Infrastructure.CreditReportsXml
         private readonly ICreditBureauReportRepository _creditBureauReportRepository = creditBureauReportRepository;
         private readonly ITelegramNotificationService _telegramNotificationService = telegramNotificationService;
         private const string CreditReport017FullLogFile = "CreditReport017Full.txt";
+
         public async Task CreditReportXml(LoanApplication loanApplications, CancellationToken cancellationToken)
         {
             try
@@ -54,9 +55,11 @@ namespace Infrastructure.CreditReportsXml
                     PReportFormat = 0,
                     PReportReason = loanApplications.PReportReason
                 };
-                var request = new BaseRequest<CreditReportRequest>() { Data = creditReportRequest, Security = _requestSecurity };
+                var request = new BaseRequest<CreditReportRequest>()
+                    { Data = creditReportRequest, Security = _requestSecurity };
                 var requestJson = request.ToJSON();
-                Console.WriteLine($"CI-017 XML Request. LoanKey:{loanApplications.KeyCreditBureauKb} ClaimId:{loanApplications.PClaimId}\n{requestJson}");
+                Console.WriteLine(
+                    $"CI-017 XML Request. LoanKey:{loanApplications.KeyCreditBureauKb} ClaimId:{loanApplications.PClaimId}\n{requestJson}");
                 _logWriter.Log(
                     CreditReport017FullLogFile,
                     $"Type: CI-017 XML Request\nKeyLoanHistoryKb: {loanApplications.KeyCreditBureauKb}\nClaimId: {loanApplications.PClaimId}\n{requestJson}");
@@ -87,11 +90,13 @@ namespace Infrastructure.CreditReportsXml
                     $"Type: CI-017 XML Response\nKeyLoanHistoryKb: {loanApplications.KeyCreditBureauKb}\nClaimId: {loanApplications.PClaimId}\n{response}");
                 if (string.IsNullOrWhiteSpace(response))
                 {
-                    await NotifyErrorAsync("CI-017 XML empty response", loanApplications, "API вернул пустой ответ", cancellationToken);
                     return;
                 }
+
                 var baseResponse = JsonConvert.DeserializeObject<BaseResponse<CreditReportResponse>>(response);
-                _logWriter.Log("CreditReportResponseXml.txt", $"KeyAbsLoan:ClaimId: {loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyCreditBureauKb} - {DateTime.Now}\n\n" + baseResponse?.ToJSON());
+                _logWriter.Log("CreditReportResponseXml.txt",
+                    $"KeyAbsLoan:ClaimId: {loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyCreditBureauKb} - {DateTime.Now}\n\n" +
+                    baseResponse?.ToJSON());
                 // Проверяем запрос
                 // Код ответа(05000 - успешно)
                 if (baseResponse?.data?.result == CreditBureauResultCodes.SUCCESS_05000)
@@ -99,18 +104,22 @@ namespace Infrastructure.CreditReportsXml
                     // Сохраняем в базу данных Base64
                     try
                     {
-                        await _helperRepository.KatmHelperXml(loanApplications.KeyCreditBureauKb, baseResponse.data.reportBase64, IHelperRepository.TypeOperation.Base64, cancellationToken);
+                        await _helperRepository.KatmHelperXml(loanApplications.KeyCreditBureauKb,
+                            baseResponse.data.reportBase64, IHelperRepository.TypeOperation.Base64, cancellationToken);
                         _logWriter.Log("TestParser.txt", "start");
                         try
                         {
-                            await _creditReportXmlParser.ParseAndPersistAsync(loanApplications.KeyCreditBureauKb, baseResponse.data.reportBase64, cancellationToken);
+                            await _creditReportXmlParser.ParseAndPersistAsync(loanApplications.KeyCreditBureauKb,
+                                baseResponse.data.reportBase64, cancellationToken);
                             _logWriter.Log("TestParser.txt", "Успех");
                         }
                         catch (Exception ex)
                         {
                             _logWriter.Log("TestParser.txt", "catch 1--" + ex.Message);
                         }
-                        await _creditBureauReportRepository.UpsertCiStatusAsync(int.Parse(loanApplications.KeyCreditBureauKb), 17, 1, "Success", null, cancellationToken);
+
+                        await _creditBureauReportRepository.UpsertCiStatusAsync(
+                            int.Parse(loanApplications.KeyCreditBureauKb), 17, 1, "Success", null, cancellationToken);
                     }
                     catch (Exception ex)
                     {
@@ -126,8 +135,11 @@ namespace Infrastructure.CreditReportsXml
                     if (!string.IsNullOrEmpty(baseResponse.data.token))
                     {
                         // сохраняем токен
-                        await _helperRepository.KatmHelperXml(loanApplications.KeyCreditBureauKb, baseResponse.data.token, IHelperRepository.TypeOperation.Token, cancellationToken);
-                        await _creditBureauReportRepository.UpsertCiStatusAsync(int.Parse(loanApplications.KeyCreditBureauKb), 17, 0, "Waiting", baseResponse.data.token, cancellationToken);
+                        await _helperRepository.KatmHelperXml(loanApplications.KeyCreditBureauKb,
+                            baseResponse.data.token, IHelperRepository.TypeOperation.Token, cancellationToken);
+                        await _creditBureauReportRepository.UpsertCiStatusAsync(
+                            int.Parse(loanApplications.KeyCreditBureauKb), 17, 0, "Waiting", baseResponse.data.token,
+                            cancellationToken);
                         return;
                     }
                 }
@@ -136,32 +148,41 @@ namespace Infrastructure.CreditReportsXml
                 {
                     if (string.IsNullOrEmpty(baseResponse.data.token))
                     {
-                        await _helperRepository.KatmHelperXml(loanApplications.KeyCreditBureauKb, "Заявка не найдена!", IHelperRepository.TypeOperation.Error, cancellationToken);
-                        await _creditBureauReportRepository.UpsertCiStatusAsync(int.Parse(loanApplications.KeyCreditBureauKb), 17, 2, "Claim not found", null, cancellationToken);
-                        await NotifyErrorAsync("CI-017 XML API error", loanApplications, $"Message: Заявка не найдена\nResult: {baseResponse.data.result}", cancellationToken);
+                        await _helperRepository.KatmHelperXml(loanApplications.KeyCreditBureauKb, "Заявка не найдена!",
+                            IHelperRepository.TypeOperation.Error, cancellationToken);
+                        await _creditBureauReportRepository.UpsertCiStatusAsync(
+                            int.Parse(loanApplications.KeyCreditBureauKb), 17, 2, "Claim not found", null,
+                            cancellationToken);
                         return;
                     }
                 }
                 else if (baseResponse?.data?.result == CreditBureauResultCodes.IDENTICAL_REQUEST)
                 {
-                    await _helperRepository.KatmHelperXml(loanApplications.KeyCreditBureauKb, 5.ToJSON(), IHelperRepository.TypeOperation.AddNextAccess, cancellationToken);
-                    await _creditBureauReportRepository.UpsertCiStatusAsync(int.Parse(loanApplications.KeyCreditBureauKb), 17, 2, "Identical request", null, cancellationToken);
-                    await NotifyErrorAsync("CI-017 XML API error", loanApplications, $"Message: Идентичный запрос\nResult: {baseResponse.data.result}", cancellationToken);
+                    await _helperRepository.KatmHelperXml(loanApplications.KeyCreditBureauKb, 5.ToJSON(),
+                        IHelperRepository.TypeOperation.AddNextAccess, cancellationToken);
+                    await _creditBureauReportRepository.UpsertCiStatusAsync(
+                        int.Parse(loanApplications.KeyCreditBureauKb), 17, 2, "Identical request", null,
+                        cancellationToken);
                 }
                 else if (baseResponse?.data?.result == CreditBureauResultCodes.FREEZE_SERVICE_ACTIVE)
                 {
-                    await _helperRepository.KatmHelperXml(loanApplications.KeyCreditBureauKb, "Субъект не дает согласия на получение кредитной истории, подключена услуга Freeze. Субъекту необходимо отключить услугу Freeze.", IHelperRepository.TypeOperation.Error, cancellationToken);
-                    await _creditBureauReportRepository.UpsertCiStatusAsync(int.Parse(loanApplications.KeyCreditBureauKb), 17, 2, "Freeze service active", null, cancellationToken);
-                    await NotifyErrorAsync("CI-017 XML API error", loanApplications, $"Message: Freeze service active\nResult: {baseResponse.data.result}", cancellationToken);
+                    await _helperRepository.KatmHelperXml(loanApplications.KeyCreditBureauKb,
+                        "Субъект не дает согласия на получение кредитной истории, подключена услуга Freeze. Субъекту необходимо отключить услугу Freeze.",
+                        IHelperRepository.TypeOperation.Error, cancellationToken);
+                    await _creditBureauReportRepository.UpsertCiStatusAsync(
+                        int.Parse(loanApplications.KeyCreditBureauKb), 17, 2, "Freeze service active", null,
+                        cancellationToken);
                 }
             }
             catch (Exception ex)
             {
-                _logWriter.Log("CreditReportCatchXml.txt", $"KeyAbsLoan:ClaimId: {loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyCreditBureauKb} - {DateTime.Now}\n\n" + ex.Message);
-                await NotifyErrorAsync("CI-017 XML processing exception", loanApplications, $"Message: {ex.Message}\nStackTrace: {ex.StackTrace}", cancellationToken);
+                _logWriter.Log("CreditReportCatchXml.txt",
+                    $"KeyAbsLoan:ClaimId: {loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyCreditBureauKb} - {DateTime.Now}\n\n" +
+                    ex.Message);
                 return;
             }
         }
+
         public async Task CreditReportStatusXml(LoanApplication loanApplications, CancellationToken cancellationToken)
         {
             while (!cancellationToken.IsCancellationRequested)
@@ -176,10 +197,14 @@ namespace Infrastructure.CreditReportsXml
                         pClaimId = loanApplications.PClaimId,
                         pToken = loanApplications.PToken!
                     };
-                    var request = new BaseRequest<CreditReportStatusRequest>() { Data = creditReportStatusRequest, Security = _requestSecurity };
+                    var request = new BaseRequest<CreditReportStatusRequest>()
+                        { Data = creditReportStatusRequest, Security = _requestSecurity };
                     var requestJson = request.ToJSON();
-                    _logWriter.Log("CreditReportStatusRequestXml.txt", $"KeyAbsLoan:ClaimId: {loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyCreditBureauKb} - {DateTime.Now}\n\n" + requestJson);
-                    Console.WriteLine($"CI-017 XML Status Request. LoanKey:{loanApplications.KeyCreditBureauKb} ClaimId:{loanApplications.PClaimId}\n{requestJson}");
+                    _logWriter.Log("CreditReportStatusRequestXml.txt",
+                        $"KeyAbsLoan:ClaimId: {loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyCreditBureauKb} - {DateTime.Now}\n\n" +
+                        requestJson);
+                    Console.WriteLine(
+                        $"CI-017 XML Status Request. LoanKey:{loanApplications.KeyCreditBureauKb} ClaimId:{loanApplications.PClaimId}\n{requestJson}");
                     _logWriter.Log(
                         CreditReport017FullLogFile,
                         $"Type: CI-017 XML Status Request\nKeyLoanHistoryKb: {loanApplications.KeyCreditBureauKb}\nClaimId: {loanApplications.PClaimId}\n{requestJson}");
@@ -209,39 +234,51 @@ namespace Infrastructure.CreditReportsXml
                         $"Type: CI-017 XML Status Response\nKeyLoanHistoryKb: {loanApplications.KeyCreditBureauKb}\nClaimId: {loanApplications.PClaimId}\n{response}");
                     if (string.IsNullOrWhiteSpace(response))
                     {
-                        await NotifyErrorAsync("CI-017 XML status empty response", loanApplications, "API вернул пустой ответ при проверке статуса", cancellationToken);
                         return;
                     }
 
-                    var baseResponse = JsonConvert.DeserializeObject<BaseResponse<CreditReportStatusResponse>>(response);
-                    _logWriter.Log("CreditReportStatusResponseXml.txt", $"KeyAbsLoan:ClaimId: {loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyCreditBureauKb} - {DateTime.Now}\n\n" + baseResponse?.ToJSON());
+                    var baseResponse =
+                        JsonConvert.DeserializeObject<BaseResponse<CreditReportStatusResponse>>(response);
+                    _logWriter.Log("CreditReportStatusResponseXml.txt",
+                        $"KeyAbsLoan:ClaimId: {loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyCreditBureauKb} - {DateTime.Now}\n\n" +
+                        baseResponse?.ToJSON());
 
                     if (baseResponse.data.result == CreditBureauResultCodes.SUCCESS_05000)
                     {
-                        await _helperRepository.KatmHelperXml(loanApplications.KeyCreditBureauKb, baseResponse.data.reportBase64, IHelperRepository.TypeOperation.Base64, cancellationToken);
+                        await _helperRepository.KatmHelperXml(loanApplications.KeyCreditBureauKb,
+                            baseResponse.data.reportBase64, IHelperRepository.TypeOperation.Base64, cancellationToken);
                         _logWriter.Log("TestParser.txt", "start");
                         try
                         {
-                            await _creditReportXmlParser.ParseAndPersistAsync(loanApplications.KeyCreditBureauKb, baseResponse.data.reportBase64, cancellationToken);
+                            await _creditReportXmlParser.ParseAndPersistAsync(loanApplications.KeyCreditBureauKb,
+                                baseResponse.data.reportBase64, cancellationToken);
                             _logWriter.Log("TestParser.txt", "Успех");
                         }
                         catch (Exception ex)
                         {
                             _logWriter.Log("TestParser.txt", "catch 1--" + ex.Message);
                         }
-                        await _creditBureauReportRepository.UpsertCiStatusAsync(int.Parse(loanApplications.KeyCreditBureauKb), 17, 1, "Success", null, cancellationToken);
+
+                        await _creditBureauReportRepository.UpsertCiStatusAsync(
+                            int.Parse(loanApplications.KeyCreditBureauKb), 17, 1, "Success", null, cancellationToken);
                         return;
                     }
                     else if (baseResponse.data.result == CreditBureauResultCodes.IDENTICAL_REQUEST)
                     {
-                        await _helperRepository.KatmHelperXml(loanApplications.KeyCreditBureauKb, 5.ToJSON(), IHelperRepository.TypeOperation.AddNextAccess, cancellationToken);
-                        await _creditBureauReportRepository.UpsertCiStatusAsync(int.Parse(loanApplications.KeyCreditBureauKb), 17, 2, "Identical request", null, cancellationToken);
+                        await _helperRepository.KatmHelperXml(loanApplications.KeyCreditBureauKb, 5.ToJSON(),
+                            IHelperRepository.TypeOperation.AddNextAccess, cancellationToken);
+                        await _creditBureauReportRepository.UpsertCiStatusAsync(
+                            int.Parse(loanApplications.KeyCreditBureauKb), 17, 2, "Identical request", null,
+                            cancellationToken);
                         return;
                     }
                     else if (baseResponse.data.result == CreditBureauResultCodes.WAIT_AND_TRY_AGAIN)
                     {
-                        await _helperRepository.KatmHelperXml(loanApplications.KeyCreditBureauKb, 1.ToJSON(), IHelperRepository.TypeOperation.AddNextAccess, cancellationToken);
-                        await _creditBureauReportRepository.UpsertCiStatusAsync(int.Parse(loanApplications.KeyCreditBureauKb), 17, 0, "Waiting", loanApplications.PToken, cancellationToken);
+                        await _helperRepository.KatmHelperXml(loanApplications.KeyCreditBureauKb, 1.ToJSON(),
+                            IHelperRepository.TypeOperation.AddNextAccess, cancellationToken);
+                        await _creditBureauReportRepository.UpsertCiStatusAsync(
+                            int.Parse(loanApplications.KeyCreditBureauKb), 17, 0, "Waiting", loanApplications.PToken,
+                            cancellationToken);
                         await Task.Delay(_options.CheckReportStatusInterval, cancellationToken);
                     }
                     else
@@ -251,17 +288,19 @@ namespace Infrastructure.CreditReportsXml
                 }
                 catch (Exception ex)
                 {
-                    _logWriter.Log("CreditReportStatusResponseXml.txt", $"KeyAbsLoan:ClaimId: {loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyCreditBureauKb} - {DateTime.Now}\n\n" + ex.Message);
-                    await NotifyErrorAsync("CI-017 XML status processing exception", loanApplications, $"Message: {ex.Message}\nStackTrace: {ex.StackTrace}", cancellationToken);
+                    _logWriter.Log("CreditReportStatusResponseXml.txt",
+                        $"KeyAbsLoan:ClaimId: {loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyCreditBureauKb} - {DateTime.Now}\n\n" +
+                        ex.Message);
                     return;
                 }
             }
         }
 
-        private async Task NotifyErrorAsync(string source, LoanApplication loan, string details, CancellationToken cancellationToken)
+        private async Task NotifyErrorAsync(string source, LoanApplication loan, string details,
+            CancellationToken cancellationToken)
         {
-            var (app, customerId) = await _creditBureauReportRepository.GetLoanAppAndCustomerIdAsync(
-                int.Parse(loan.KeyCreditBureauKb), cancellationToken);
+                var (app, customerId) = await _creditBureauReportRepository.GetLoanAppAndCustomerIdAsync(
+                    loan.KeyCreditBureauKb, cancellationToken);
 
             await _telegramNotificationService.NotifyErrorAsync(
                 source,

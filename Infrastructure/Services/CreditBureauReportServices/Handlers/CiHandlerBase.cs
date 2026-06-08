@@ -269,7 +269,7 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
             ? $"\nRequest: {GetResponsePreview(RedactSecurity(_currentRequestJson), 1500)}"
             : string.Empty;
 
-        var (app, customerId) = await CreditBureauReportRepository.GetLoanAppAndCustomerIdAsync(loanKey, cancellationToken);
+        var (app, customerId) = await CreditBureauReportRepository.GetLoanAppAndCustomerIdAsync(loanKey.ToString(), cancellationToken);
 
         await TelegramNotificationService.NotifyErrorAsync(
             source,

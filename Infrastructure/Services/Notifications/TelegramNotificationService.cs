@@ -98,11 +98,8 @@ public sealed class TelegramNotificationService(
             .Append("Source: ").AppendLine(source)
             .Append("Time: ").AppendLine(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
 
-        if (!string.IsNullOrWhiteSpace(app))
-            builder.Append("APP: ").AppendLine(app);
-
-        if (!string.IsNullOrWhiteSpace(customerId))
-            builder.Append("Customer_ID: ").AppendLine(customerId);
+        builder.Append("APP: ").AppendLine(string.IsNullOrWhiteSpace(app) ? "N/A" : app);
+        builder.Append("Customer_ID: ").AppendLine(string.IsNullOrWhiteSpace(customerId) ? "N/A" : customerId);
 
         builder
             .AppendLine()
