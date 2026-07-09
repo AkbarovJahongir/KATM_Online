@@ -98,11 +98,13 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
 
                 var baseRequest = prepareRequestFunc(item.Request);
                 _currentRequestJson = baseRequest.ToJSON();
+                LogFullRequest(item.LoanKey, _currentRequestJson);
                 var response = await RequestManagerService.SendPostRequest(
                     endpoint,
                     _currentRequestJson,
                     item.LoanKey,
                     cancellationToken);
+                LogFullResponse(item.LoanKey, response);
 
                 if (string.IsNullOrWhiteSpace(response))
                 {
@@ -255,6 +257,18 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
             return null;
         }
     }
+
+    /// <summary>
+    /// Полное логирование запроса CI в отдельный файл по фиче (CI{CiCode:D3}Full.txt)
+    /// </summary>
+    protected void LogFullRequest(int loanKey, string requestJson) =>
+        LogWriter.Log($"CI{CiCode:D3}Full.txt", $"Type: CI-{CiCode:D3} Request\nLoanKey: {loanKey}\n{requestJson}");
+
+    /// <summary>
+    /// Полное логирование ответа CI в отдельный файл по фиче (CI{CiCode:D3}Full.txt)
+    /// </summary>
+    protected void LogFullResponse(int loanKey, string response) =>
+        LogWriter.Log($"CI{CiCode:D3}Full.txt", $"Type: CI-{CiCode:D3} Response\nLoanKey: {loanKey}\n{response}");
 
     protected async Task NotifyErrorAsync(string source, int loanKey, string details,
         CancellationToken cancellationToken = default)

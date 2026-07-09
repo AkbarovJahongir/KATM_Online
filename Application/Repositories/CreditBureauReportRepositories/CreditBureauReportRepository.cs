@@ -999,15 +999,20 @@ public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : I
 
     public async Task<(string? App, string? CustomerId)> GetLoanAppAndCustomerIdAsync(string loanKey, CancellationToken cancellationToken)
     {
+        if (string.IsNullOrWhiteSpace(loanKey))
+        {
+            return (null, null);
+        }
+
         using var connection = new SqlConnection(_databaseSettings.DBConnection);
         using var command = new SqlCommand(
-            @"SELECT TOP 1 la.App, la.Customer_ID
-              FROM Loan la
-              INNER JOIN Loan_History_KB lhk ON la.App = lhk.App
-              WHERE lhk.[key] = @LoanKey",
+            @"SELECT TOP 1 l.App, l.Customer_ID
+              FROM CIB.dbo.Request_History rh WITH(NOLOCK)
+              JOIN dbo.Loan l WITH(NOLOCK) ON l.[key] = rh.Key_Abs_Loan
+              WHERE rh.[Key] = @LoanKey",
             connection);
 
-        command.Parameters.Add("@LoanKey", SqlDbType.NVarChar, 64).Value = loanKey;
+        command.Parameters.Add("@LoanKey", SqlDbType.NVarChar, 64).Value = loanKey.Trim();
 
         await connection.OpenAsync(cancellationToken);
         using var reader = await command.ExecuteReaderAsync(cancellationToken);

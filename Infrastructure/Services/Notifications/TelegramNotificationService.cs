@@ -1,18 +1,25 @@
+using Application.Repositories.CreditBureauReportRepositories;
 using Domain.Common.Settings;
 using Microsoft.Extensions.Logging;
 using System.Net.Http.Json;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace Infrastructure.Services.Notifications;
 
 public sealed class TelegramNotificationService(
     IHttpClientFactory httpClientFactory,
+    ICreditBureauReportRepository creditBureauReportRepository,
     TelegramNotificationSettings settings,
     ILogger<TelegramNotificationService> logger) : ITelegramNotificationService
 {
     private const int TelegramMessageLimit = 4000;
+    private static readonly Regex LoanKeyRegex = new(
+        @"(?:LoanKey|Key_RequestHistory|KeyLoanHistoryKb)\s*:\s*(\S+)",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
+    private readonly ICreditBureauReportRepository _creditBureauReportRepository = creditBureauReportRepository;
     private readonly TelegramNotificationSettings _settings = settings;
     private readonly ILogger<TelegramNotificationService> _logger = logger;
 
@@ -36,7 +43,13 @@ public sealed class TelegramNotificationService(
         await SendAsync("KATM_Online error", source, message, app, customerId, cancellationToken);
     }
 
-    private async Task SendAsync(string title, string source, string message, string? app, string? customerId, CancellationToken cancellationToken)
+    private async Task SendAsync(
+        string title,
+        string source,
+        string message,
+        string? app,
+        string? customerId,
+        CancellationToken cancellationToken)
     {
         _logger.LogInformation("Telegram notification check: Enabled={Enabled}, BotToken present={BotTokenPresent}, ChatIds count={ChatIdsCount}",
             _settings.Enabled,
@@ -51,6 +64,7 @@ public sealed class TelegramNotificationService(
             return;
         }
 
+        (app, customerId) = await ResolveLoanContextAsync(app, customerId, message, cancellationToken);
         var text = BuildMessage(title, source, message, app, customerId);
 
         foreach (var chatId in _settings.ChatIds)
@@ -89,6 +103,50 @@ public sealed class TelegramNotificationService(
                 _logger.LogWarning(ex, "Telegram notification sending failed. ChatId={ChatId}", chatId);
             }
         }
+    }
+
+    private async Task<(string? App, string? CustomerId)> ResolveLoanContextAsync(
+        string? app,
+        string? customerId,
+        string message,
+        CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrWhiteSpace(app) && !string.IsNullOrWhiteSpace(customerId))
+        {
+            return (app, customerId);
+        }
+
+        var loanKey = TryExtractLoanKey(message);
+        if (string.IsNullOrWhiteSpace(loanKey))
+        {
+            return (app, customerId);
+        }
+
+        try
+        {
+            var (resolvedApp, resolvedCustomerId) =
+                await _creditBureauReportRepository.GetLoanAppAndCustomerIdAsync(loanKey, cancellationToken);
+
+            return (
+                string.IsNullOrWhiteSpace(app) ? resolvedApp : app,
+                string.IsNullOrWhiteSpace(customerId) ? resolvedCustomerId : customerId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to resolve App/Customer_ID for LoanKey={LoanKey}", loanKey);
+            return (app, customerId);
+        }
+    }
+
+    private static string? TryExtractLoanKey(string message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return null;
+        }
+
+        var match = LoanKeyRegex.Match(message);
+        return match.Success ? match.Groups[1].Value.Trim() : null;
     }
 
     private static string BuildMessage(string title, string source, string message, string? app = null, string? customerId = null)

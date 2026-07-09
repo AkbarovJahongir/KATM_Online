@@ -65,12 +65,14 @@ public class Ci002EntityRequestHandler : CiHandlerBase<CreditRegistrationEntityR
                     Security = RequestSecurity
                 };
                 _currentRequestJson = baseRequest.ToJSON();
+                LogFullRequest(item.LoanKey, _currentRequestJson);
 
                 var response = await RequestManagerService.SendPostRequest(
                     CreditBureauApiOptions.HostAddress + CreditBureauApiOptions.LegalEntityApplicationUrl,
                     _currentRequestJson,
                     item.LoanKey,
                     cancellationToken);
+                LogFullResponse(item.LoanKey, response);
 
                 if (string.IsNullOrWhiteSpace(response))
                 {

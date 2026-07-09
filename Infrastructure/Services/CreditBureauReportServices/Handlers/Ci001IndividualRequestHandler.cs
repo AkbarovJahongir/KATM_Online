@@ -61,12 +61,14 @@ public class Ci001IndividualRequestHandler : CiHandlerBase<CreditRegistrationInd
                     Security = RequestSecurity
                 };
                 _currentRequestJson = baseRequest.ToJSON();
+                LogFullRequest(item.LoanKey, _currentRequestJson);
 
                 var response = await RequestManagerService.SendPostRequest(
                     CreditBureauApiOptions.HostAddress + CreditBureauApiOptions.IndividualPersonApplicationUrl,
                     _currentRequestJson,
                     item.LoanKey,
                     cancellationToken);
+                LogFullResponse(item.LoanKey, response);
 
                 if (string.IsNullOrWhiteSpace(response))
                 {

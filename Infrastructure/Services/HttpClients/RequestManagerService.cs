@@ -23,6 +23,7 @@ namespace Infrastructure.Services.HttpClients
         
         private const int MaxRetries = 3;
         private const int InitialRetryDelayMs = 1000;
+        private const string CreditReport017FullLogFile = "CreditReport017Full.txt";
 
         public async Task<string> SendPostRequest(string url, string jsonData, string KeyLoanHistoryKb, IsXml isxml, CancellationToken cancellationToken)
         {
@@ -56,11 +57,31 @@ namespace Infrastructure.Services.HttpClients
             _logWriter.Log("RequestManager.txt", $"Key_RequestHistory:{KeyLoanHistoryKb} RequestBody: {jsonData}");
             _logger.LogInformation(message: $"POST request value: {request}");
             DateTime dateRequest = DateTime.Now;
-            var httpResponseMessage = await httpClient.SendAsync(request, cancellationToken);
+            HttpResponseMessage httpResponseMessage;
+            string responseBody;
+            try
+            {
+                httpResponseMessage = await httpClient.SendAsync(request, cancellationToken);
+                responseBody = httpResponseMessage.Content is null
+                    ? string.Empty
+                    : await httpResponseMessage.Content.ReadAsStringAsync(cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                DateTime dateResponseEx = DateTime.Now;
+                _logWriter.Log("RequestManager.txt", $"Key_RequestHistory:{KeyLoanHistoryKb} POST request threw exception: {ex.Message}");
+                _logWriter.Log(CreditReport017FullLogFile, $"Type: CI-017 Exception\nKeyLoanHistoryKb: {KeyLoanHistoryKb}\nUrl: {url}\nRequestBody: {jsonData}\n{ex}");
+                var (appEx, customerIdEx) = await FetchAppAndCustomerId(KeyLoanHistoryKb, cancellationToken);
+                await _telegramNotificationService.NotifyErrorAsync(
+                    "CI-017 request exception",
+                    $"Key_RequestHistory: {KeyLoanHistoryKb}\nUrl: {url}\nRequestBody: {jsonData}\nException: {ex.Message}",
+                    appEx, customerIdEx, cancellationToken);
+                var (codeEx, messageEx) = await _requestManagerRepository.InsertLog(KeyLoanHistoryKb, url, jsonData, request.Method.Method, 0, ex.Message, dateRequest, dateResponseEx, isxml, cancellationToken);
+                if (string.IsNullOrWhiteSpace(codeEx) || codeEx == "1")
+                    _logWriter.EmergencyLog("EmergencyLog.txt", "Key_RequestHistory:" + KeyLoanHistoryKb + "\n\nException:" + ex.Message + "\n\n" + messageEx);
+                return result;
+            }
             DateTime dateResponse = DateTime.Now;
-            var responseBody = httpResponseMessage.Content is null
-                ? string.Empty
-                : await httpResponseMessage.Content.ReadAsStringAsync(cancellationToken);
 
             _logWriter.Log("RequestManager.txt", $"Key_RequestHistory:{KeyLoanHistoryKb} Response: {httpResponseMessage.ToJSON()}");
             _logWriter.Log("RequestManager.txt", $"Key_RequestHistory:{KeyLoanHistoryKb} ResponseBody: {responseBody}");

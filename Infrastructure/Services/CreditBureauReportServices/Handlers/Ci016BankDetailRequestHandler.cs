@@ -62,12 +62,14 @@ public class Ci016BankDetailRequestHandler : CiHandlerBase<CreditRegistrationBan
 
                 var baseRequest = CreateBaseRequest(item.Request);
                 _currentRequestJson = baseRequest.ToJSON();
+                LogFullRequest(item.LoanKey, _currentRequestJson);
 
                 var response = await RequestManagerService.SendPostRequest(
                     CreditBureauApiOptions.HostAddress + CreditBureauApiOptions.CreditRegistrationRepaymentBankDitailUrl,
                     _currentRequestJson,
                     item.LoanKey,
                     cancellationToken);
+                LogFullResponse(item.LoanKey, response);
 
                 if (string.IsNullOrWhiteSpace(response))
                 {
@@ -185,12 +187,14 @@ public class Ci016BankDetailRequestHandler : CiHandlerBase<CreditRegistrationBan
 
                 var baseRequest = CreateBaseRequest(item.Request);
                 _currentRequestJson = baseRequest.ToJSON();
+                LogFullRequest(item.LoanKey, _currentRequestJson);
 
                 var response = await RequestManagerService.SendPostRequest(
                     CreditBureauApiOptions.HostAddress + CreditBureauApiOptions.CreditRegistrationRepaymentBankDitailUrl,
                     _currentRequestJson,
                     item.LoanKey,
                     cancellationToken);
+                LogFullResponse(item.LoanKey, response);
 
                 if (string.IsNullOrWhiteSpace(response))
                 {

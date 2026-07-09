@@ -61,12 +61,14 @@ public class Ci022BusinessDetailRequestHandler : CiHandlerBase<CreditRegistratio
 
                 var baseRequest = CreateBaseRequest(item.Request);
                 _currentRequestJson = baseRequest.ToJSON();
+                LogFullRequest(item.LoanKey, _currentRequestJson);
 
                 var response = await RequestManagerService.SendPostRequest(
                     CreditBureauApiOptions.HostAddress + CreditBureauApiOptions.CreditRegistrationBusinessDetailsUrl,
                     _currentRequestJson,
                     item.LoanKey,
                     cancellationToken);
+                LogFullResponse(item.LoanKey, response);
 
                 if (string.IsNullOrWhiteSpace(response))
                 {

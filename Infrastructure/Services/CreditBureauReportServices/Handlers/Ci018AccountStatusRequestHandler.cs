@@ -62,12 +62,14 @@ public class Ci018AccountStatusRequestHandler : CiHandlerBase<CreditRegistration
 
                 var baseRequest = CreateBaseRequest(item.Request);
                 _currentRequestJson = baseRequest.ToJSON();
+                LogFullRequest(item.LoanKey, _currentRequestJson);
 
                 var response = await RequestManagerService.SendPostRequest(
                     CreditBureauApiOptions.HostAddress + CreditBureauApiOptions.AccountStatusUrl,
                     _currentRequestJson,
                     item.LoanKey,
                     cancellationToken);
+                LogFullResponse(item.LoanKey, response);
 
                 if (string.IsNullOrWhiteSpace(response))
                 {
@@ -184,12 +186,15 @@ public class Ci018AccountStatusRequestHandler : CiHandlerBase<CreditRegistration
                 SetStandardFields(item.Request, FormatKatmDate(startDate));
 
                 var baseRequest = CreateBaseRequest(item.Request);
+                var requestJson = baseRequest.ToJSON();
+                LogFullRequest(item.LoanKey, requestJson);
 
                 var response = await RequestManagerService.SendPostRequest(
                     CreditBureauApiOptions.HostAddress + CreditBureauApiOptions.AccountStatusUrl,
-                    baseRequest.ToJSON(),
+                    requestJson,
                     item.LoanKey,
                     cancellationToken);
+                LogFullResponse(item.LoanKey, response);
 
                 if (string.IsNullOrWhiteSpace(response))
                 {
