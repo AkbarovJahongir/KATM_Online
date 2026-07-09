@@ -220,6 +220,20 @@ public interface ICreditBureauReportRepository
 
     Task IncrementCi017AttemptAsync(int loanKey, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Записать запрос/ответ CI-017 (отчёт или проверка статуса) в Ci017RequestLog.
+    /// </summary>
+    Task InsertCi017RequestLogAsync(
+        int loanKey,
+        string? claimId,
+        string requestType,
+        int attemptNumber,
+        string? requestBody,
+        string? responseBody,
+        DateTime dateRequest,
+        DateTime? dateResponse,
+        CancellationToken cancellationToken);
+
     public Task UpsertCiStatusAsync(
         int loanKey,
         int ciCode,
@@ -245,7 +259,7 @@ public interface ICreditBureauReportRepository
     public Task<byte?> GetCreditBureau002StatusAsync(int loanKey, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Получить APP (App) и Customer_ID из таблицы Loan по LoanKey (через JOIN с Loan_History_KB)
+    /// Получить APP (App) и Customer_ID из таблицы Loan по LoanKey (через JOIN с CIB.dbo.Request_History по Key_Abs_Loan)
     /// </summary>
     Task<(string? App, string? CustomerId)> GetLoanAppAndCustomerIdAsync(string loanKey, CancellationToken cancellationToken);
 }

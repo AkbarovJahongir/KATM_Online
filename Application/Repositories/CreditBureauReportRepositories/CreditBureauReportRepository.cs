@@ -918,6 +918,37 @@ public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : I
         await connection.CloseAsync();
     }
 
+    public async Task InsertCi017RequestLogAsync(
+        int loanKey,
+        string? claimId,
+        string requestType,
+        int attemptNumber,
+        string? requestBody,
+        string? responseBody,
+        DateTime dateRequest,
+        DateTime? dateResponse,
+        CancellationToken cancellationToken)
+    {
+        using var connection = new SqlConnection(_databaseSettings.CIBConnection);
+        using var command = new SqlCommand(
+            @"INSERT INTO [dbo].[Ci017RequestLog]
+                (LoanKey, ClaimId, RequestType, AttemptNumber, RequestBody, ResponseBody, DateRequest, DateResponse)
+              VALUES
+                (@LoanKey, @ClaimId, @RequestType, @AttemptNumber, @RequestBody, @ResponseBody, @DateRequest, @DateResponse)",
+            connection);
+        command.Parameters.AddWithValue("@LoanKey", loanKey);
+        command.Parameters.AddWithValue("@ClaimId", (object?)claimId ?? DBNull.Value);
+        command.Parameters.AddWithValue("@RequestType", requestType);
+        command.Parameters.AddWithValue("@AttemptNumber", attemptNumber);
+        command.Parameters.AddWithValue("@RequestBody", (object?)requestBody ?? DBNull.Value);
+        command.Parameters.AddWithValue("@ResponseBody", (object?)responseBody ?? DBNull.Value);
+        command.Parameters.AddWithValue("@DateRequest", dateRequest);
+        command.Parameters.AddWithValue("@DateResponse", (object?)dateResponse ?? DBNull.Value);
+        await connection.OpenAsync(cancellationToken);
+        await command.ExecuteNonQueryAsync(cancellationToken);
+        await connection.CloseAsync();
+    }
+
     public async Task UpsertCiStatusAsync(
         int loanKey,
         int ciCode,

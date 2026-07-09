@@ -12,6 +12,7 @@ using Infrastructure.CreditReportsXml.Parsers;
 using Infrastructure.Services.HttpClients;
 using Infrastructure.Services.Notifications;
 using Newtonsoft.Json;
+using System.Collections.Concurrent;
 
 namespace Infrastructure.CreditReportsXml
 {
@@ -36,9 +37,23 @@ namespace Infrastructure.CreditReportsXml
         private readonly ICreditBureauReportRepository _creditBureauReportRepository = creditBureauReportRepository;
         private readonly ITelegramNotificationService _telegramNotificationService = telegramNotificationService;
         private const string CreditReport017FullLogFile = "CreditReport017Full.txt";
+        private const int MaxCi017Attempts = 10;
+        private readonly ConcurrentDictionary<int, byte> _notifiedMaxAttempts = new();
 
         public async Task CreditReportXml(LoanApplication loanApplications, CancellationToken cancellationToken)
         {
+            var loanKey = int.Parse(loanApplications.KeyCreditBureauKb);
+            var attemptCount = await _creditBureauReportRepository.GetCi017AttemptCountAsync(loanKey, cancellationToken);
+            if (attemptCount >= MaxCi017Attempts)
+            {
+                if (_notifiedMaxAttempts.TryAdd(loanKey, 0))
+                {
+                    await NotifyErrorAsync("CI-017 max attempts", loanApplications, $"Max attempts ({MaxCi017Attempts}) reached", cancellationToken);
+                }
+                await _creditBureauReportRepository.UpsertCiStatusAsync(loanKey, 17, 2, $"Max attempts ({MaxCi017Attempts}) reached", null, cancellationToken);
+                return;
+            }
+
             try
             {
                 // подготавливаем запрос
@@ -88,6 +103,13 @@ namespace Infrastructure.CreditReportsXml
                 _logWriter.Log(
                     CreditReport017FullLogFile,
                     $"Type: CI-017 XML Response\nKeyLoanHistoryKb: {loanApplications.KeyCreditBureauKb}\nClaimId: {loanApplications.PClaimId}\n{response}");
+
+                await _creditBureauReportRepository.InsertCi017RequestLogAsync(
+                    loanKey, loanApplications.PClaimId, "Report", attemptCount + 1,
+                    requestJson, response, dateRequest, dateResponse, cancellationToken);
+
+                await _creditBureauReportRepository.IncrementCi017AttemptAsync(loanKey, cancellationToken);
+
                 if (string.IsNullOrWhiteSpace(response))
                 {
                     return;
@@ -185,8 +207,21 @@ namespace Infrastructure.CreditReportsXml
 
         public async Task CreditReportStatusXml(LoanApplication loanApplications, CancellationToken cancellationToken)
         {
+            var loanKey = int.Parse(loanApplications.KeyCreditBureauKb);
+
             while (!cancellationToken.IsCancellationRequested)
             {
+                var attemptCount = await _creditBureauReportRepository.GetCi017AttemptCountAsync(loanKey, cancellationToken);
+                if (attemptCount >= MaxCi017Attempts)
+                {
+                    if (_notifiedMaxAttempts.TryAdd(loanKey, 0))
+                    {
+                        await NotifyErrorAsync("CI-017 max attempts", loanApplications, $"Max attempts ({MaxCi017Attempts}) reached", cancellationToken);
+                    }
+                    await _creditBureauReportRepository.UpsertCiStatusAsync(loanKey, 17, 2, $"Max attempts ({MaxCi017Attempts}) reached", null, cancellationToken);
+                    return;
+                }
+
                 try
                 {
                     var creditReportStatusRequest = new CreditReportStatusRequest
@@ -232,6 +267,13 @@ namespace Infrastructure.CreditReportsXml
                     _logWriter.Log(
                         CreditReport017FullLogFile,
                         $"Type: CI-017 XML Status Response\nKeyLoanHistoryKb: {loanApplications.KeyCreditBureauKb}\nClaimId: {loanApplications.PClaimId}\n{response}");
+
+                    await _creditBureauReportRepository.InsertCi017RequestLogAsync(
+                        loanKey, loanApplications.PClaimId, "StatusRequest", attemptCount + 1,
+                        requestJson, response, dateRequest, dateResponse, cancellationToken);
+
+                    await _creditBureauReportRepository.IncrementCi017AttemptAsync(loanKey, cancellationToken);
+
                     if (string.IsNullOrWhiteSpace(response))
                     {
                         return;
