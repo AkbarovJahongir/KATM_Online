@@ -262,7 +262,7 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
     /// Полное логирование запроса CI в отдельный файл по фиче (CI{CiCode:D3}Full.txt)
     /// </summary>
     protected void LogFullRequest(int loanKey, string requestJson) =>
-        LogWriter.Log($"CI{CiCode:D3}Full.txt", $"Type: CI-{CiCode:D3} Request\nLoanKey: {loanKey}\n{requestJson}");
+        LogWriter.Log($"CI{CiCode:D3}Full.txt", $"Type: CI-{CiCode:D3} Request\nLoanKey: {loanKey}\n{requestJson.RedactSecurity()}");
 
     /// <summary>
     /// Полное логирование ответа CI в отдельный файл по фиче (CI{CiCode:D3}Full.txt)
@@ -280,7 +280,7 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
         }
 
         var requestInfo = _currentRequestJson is not null
-            ? $"\nRequest: {GetResponsePreview(RedactSecurity(_currentRequestJson), 1500)}"
+            ? $"\nRequest: {GetResponsePreview(_currentRequestJson.RedactSecurity(), 1500)}"
             : string.Empty;
 
         var (app, customerId) = await CreditBureauReportRepository.GetLoanAppAndCustomerIdAsync(loanKey.ToString(), cancellationToken);
@@ -291,23 +291,6 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
             app,
             customerId,
             cancellationToken);
-    }
-
-    private static string RedactSecurity(string json)
-    {
-        try
-        {
-            var obj = Newtonsoft.Json.Linq.JObject.Parse(json);
-            if (obj["security"] is not null)
-            {
-                obj["security"] = "REDACTED";
-            }
-            return obj.ToString(Newtonsoft.Json.Formatting.None);
-        }
-        catch
-        {
-            return json;
-        }
     }
 
     /// <summary>

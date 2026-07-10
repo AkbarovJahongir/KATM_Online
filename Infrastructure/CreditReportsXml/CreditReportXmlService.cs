@@ -89,10 +89,10 @@ namespace Infrastructure.CreditReportsXml
                     { Data = creditReportRequest, Security = _requestSecurity };
                 var requestJson = request.ToJSON();
                 Console.WriteLine(
-                    $"CI-017 XML Request. LoanKey:{loanApplications.KeyCreditBureauKb} ClaimId:{loanApplications.PClaimId}\n{requestJson}");
+                    $"CI-017 XML Request. LoanKey:{loanApplications.KeyCreditBureauKb} ClaimId:{loanApplications.PClaimId}\n{requestJson.RedactSecurity()}");
                 _logWriter.Log(
                     CreditReport017FullLogFile,
-                    $"Type: CI-017 XML Request\nKeyLoanHistoryKb: {loanApplications.KeyCreditBureauKb}\nClaimId: {loanApplications.PClaimId}\n{requestJson}");
+                    $"Type: CI-017 XML Request\nKeyLoanHistoryKb: {loanApplications.KeyCreditBureauKb}\nClaimId: {loanApplications.PClaimId}\n{requestJson.RedactSecurity()}");
 
                 // Отправляем запрос
                 var dateRequest = DateTime.Now;
@@ -257,12 +257,12 @@ namespace Infrastructure.CreditReportsXml
                 var requestJson = request.ToJSON();
                 _logWriter.Log("CreditReportStatusRequestXml.txt",
                     $"KeyAbsLoan:ClaimId: {loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyCreditBureauKb} - {DateTime.Now}\n\n" +
-                    requestJson);
+                    requestJson.RedactSecurity());
                 Console.WriteLine(
-                    $"CI-017 XML Status Request. LoanKey:{loanApplications.KeyCreditBureauKb} ClaimId:{loanApplications.PClaimId}\n{requestJson}");
+                    $"CI-017 XML Status Request. LoanKey:{loanApplications.KeyCreditBureauKb} ClaimId:{loanApplications.PClaimId}\n{requestJson.RedactSecurity()}");
                 _logWriter.Log(
                     CreditReport017FullLogFile,
-                    $"Type: CI-017 XML Status Request\nKeyLoanHistoryKb: {loanApplications.KeyCreditBureauKb}\nClaimId: {loanApplications.PClaimId}\n{requestJson}");
+                    $"Type: CI-017 XML Status Request\nKeyLoanHistoryKb: {loanApplications.KeyCreditBureauKb}\nClaimId: {loanApplications.PClaimId}\n{requestJson.RedactSecurity()}");
 
                 var dateRequest = DateTime.Now;
                 var response = await _requestManagerService.SendPostRequest(

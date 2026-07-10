@@ -100,6 +100,27 @@ public class CiHandlerBaseTests
     }
 
     [Fact]
+    public async Task ProcessAsync_WhenErrorNotified_TelegramMessageDoesNotContainSecurityCredentials()
+    {
+        var (sut, requestManager, _, telegram) = CreateSut();
+        requestManager.Setup(r => r.SendPostRequest(
+                It.IsAny<string>(), It.IsAny<string>(), 8, It.IsAny<CancellationToken>()))
+            .ReturnsAsync("<html>not json</html>");
+
+        string? capturedMessage = null;
+        telegram.Setup(t => t.NotifyErrorAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Callback<string, string, string?, string?, CancellationToken>((_, message, _, _, _) => capturedMessage = message)
+            .Returns(Task.CompletedTask);
+
+        await sut.InvokeAsync([Item(8, "payload")]);
+
+        Assert.NotNull(capturedMessage);
+        Assert.DoesNotContain("\"pPassword\":\"password\"", capturedMessage);
+        Assert.Contains("\"security\":\"REDACTED\"", capturedMessage);
+    }
+
+    [Fact]
     public async Task ProcessAsync_WhenResponseIsEmpty_MarksErrorAndNotifies()
     {
         var (sut, requestManager, repository, telegram) = CreateSut();

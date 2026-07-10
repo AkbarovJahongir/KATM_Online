@@ -38,8 +38,10 @@ namespace Infrastructure.Services.HttpClients
                 _logWriter.Log("RequestManager.txt", "Couldn't send request to External service API. \"jsonData\" parameter passed to \"SendPostRequest\" method is null or empty!");
                 return result;
             }
+            var redactedJsonData = jsonData.RedactSecurity();
+
             _logger.LogInformation("Sending POST request to External service API started...");
-            _logger.LogInformation("JSON data sended to External service API is: " + jsonData);
+            _logger.LogInformation("JSON data sended to External service API is: " + redactedJsonData);
             using var httpClient = new HttpClient();
             httpClient.BaseAddress = new Uri(url);
             httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
@@ -54,7 +56,7 @@ namespace Infrastructure.Services.HttpClients
             request.Content.Headers.ContentType.CharSet = string.Empty;
 
             _logWriter.Log("RequestManager.txt", $"Key_RequestHistory:{KeyLoanHistoryKb} Request: {request.ToJSON()}");
-            _logWriter.Log("RequestManager.txt", $"Key_RequestHistory:{KeyLoanHistoryKb} RequestBody: {jsonData}");
+            _logWriter.Log("RequestManager.txt", $"Key_RequestHistory:{KeyLoanHistoryKb} RequestBody: {redactedJsonData}");
             _logger.LogInformation(message: $"POST request value: {request}");
             DateTime dateRequest = DateTime.Now;
             HttpResponseMessage httpResponseMessage;
@@ -70,11 +72,11 @@ namespace Infrastructure.Services.HttpClients
             {
                 DateTime dateResponseEx = DateTime.Now;
                 _logWriter.Log("RequestManager.txt", $"Key_RequestHistory:{KeyLoanHistoryKb} POST request threw exception: {ex.Message}");
-                _logWriter.Log(CreditReport017FullLogFile, $"Type: CI-017 Exception\nKeyLoanHistoryKb: {KeyLoanHistoryKb}\nUrl: {url}\nRequestBody: {jsonData}\n{ex}");
+                _logWriter.Log(CreditReport017FullLogFile, $"Type: CI-017 Exception\nKeyLoanHistoryKb: {KeyLoanHistoryKb}\nUrl: {url}\nRequestBody: {redactedJsonData}\n{ex}");
                 var (appEx, customerIdEx) = await FetchAppAndCustomerId(KeyLoanHistoryKb, cancellationToken);
                 await _telegramNotificationService.NotifyErrorAsync(
                     "CI-017 request exception",
-                    $"Key_RequestHistory: {KeyLoanHistoryKb}\nUrl: {url}\nRequestBody: {jsonData}\nException: {ex.Message}",
+                    $"Key_RequestHistory: {KeyLoanHistoryKb}\nUrl: {url}\nRequestBody: {redactedJsonData}\nException: {ex.Message}",
                     appEx, customerIdEx, cancellationToken);
                 var (codeEx, messageEx) = await _requestManagerRepository.InsertLog(KeyLoanHistoryKb, url, jsonData, request.Method.Method, 0, ex.Message, dateRequest, dateResponseEx, isxml, cancellationToken);
                 if (string.IsNullOrWhiteSpace(codeEx) || codeEx == "1")
@@ -93,14 +95,14 @@ namespace Infrastructure.Services.HttpClients
             {
                 _logWriter.Log(
                     "RequestManager.txt",
-                    $"Key_RequestHistory:{KeyLoanHistoryKb} FailedRequestBody: {jsonData}\nFailedResponseBody: {responseBody}");
+                    $"Key_RequestHistory:{KeyLoanHistoryKb} FailedRequestBody: {redactedJsonData}\nFailedResponseBody: {responseBody}");
                 _logWriter.Log("RequestManager.txt", string.Format("Key_RequestHistory:{0} External service API send {1} status code! ResponseBody:{2}", KeyLoanHistoryKb, httpResponseMessage.StatusCode, responseBody));
                 Console.WriteLine(
-                    $"Key_RequestHistory:{KeyLoanHistoryKb} External service API send {httpResponseMessage.StatusCode} status code!\nRequestBody: {jsonData}\nResponseBody: {responseBody}");
+                    $"Key_RequestHistory:{KeyLoanHistoryKb} External service API send {httpResponseMessage.StatusCode} status code!\nRequestBody: {redactedJsonData}\nResponseBody: {responseBody}");
                 var (app1, customerId1) = await FetchAppAndCustomerId(KeyLoanHistoryKb, cancellationToken);
                 await _telegramNotificationService.NotifyErrorAsync(
                     "CI-017 request failed",
-                    $"Key_RequestHistory: {KeyLoanHistoryKb}\nStatusCode: {(int)httpResponseMessage.StatusCode} ({httpResponseMessage.StatusCode})\nUrl: {url}\nRequestBody: {jsonData}\nResponseBody: {responseBody}",
+                    $"Key_RequestHistory: {KeyLoanHistoryKb}\nStatusCode: {(int)httpResponseMessage.StatusCode} ({httpResponseMessage.StatusCode})\nUrl: {url}\nRequestBody: {redactedJsonData}\nResponseBody: {responseBody}",
                     app1, customerId1, cancellationToken);
                 await _repository.KatmHelper(KeyLoanHistoryKb, string.Format("Key_LoanHistoryKb:{0} External service API send {1} status code!", KeyLoanHistoryKb, httpResponseMessage.StatusCode), IHelperRepository.TypeOperation.Error, cancellationToken);
                 await _repository.KatmHelperXml(KeyLoanHistoryKb, string.Format("Key_LoanHistoryKb:{0} External service API send {1} status code!", KeyLoanHistoryKb, httpResponseMessage.StatusCode), IHelperRepository.TypeOperation.Error, cancellationToken);
@@ -112,7 +114,7 @@ namespace Infrastructure.Services.HttpClients
                 var (app2, customerId2) = await FetchAppAndCustomerId(KeyLoanHistoryKb, cancellationToken);
                 await _telegramNotificationService.NotifyErrorAsync(
                     "CI-017 empty response content",
-                    $"Key_RequestHistory: {KeyLoanHistoryKb}\nUrl: {url}\nRequestBody: {jsonData}",
+                    $"Key_RequestHistory: {KeyLoanHistoryKb}\nUrl: {url}\nRequestBody: {redactedJsonData}",
                     app2, customerId2, cancellationToken);
                 await _repository.KatmHelper(KeyLoanHistoryKb, string.Format("Key_LoanHistoryKb:{0} Content object received from API is null!", KeyLoanHistoryKb), IHelperRepository.TypeOperation.Error, cancellationToken);
                 await _repository.KatmHelperXml(KeyLoanHistoryKb, string.Format("Key_LoanHistoryKb:{0} Content object received from API is null!", KeyLoanHistoryKb), IHelperRepository.TypeOperation.Error, cancellationToken);
@@ -148,8 +150,10 @@ namespace Infrastructure.Services.HttpClients
                 return result;
             }
 
+            var redactedJsonData = jsonData.RedactSecurity();
+
             _logger.LogInformation("LoanKey:{LoanKey}. Sending POST request started. Url:{Url}", LoanKey, url);
-            _logger.LogInformation("LoanKey:{LoanKey}. RequestBody: {RequestBody}", LoanKey, jsonData);
+            _logger.LogInformation("LoanKey:{LoanKey}. RequestBody: {RequestBody}", LoanKey, redactedJsonData);
 
             using var httpClient = new HttpClient();
             httpClient.BaseAddress = new Uri(url);
@@ -165,7 +169,7 @@ namespace Infrastructure.Services.HttpClients
             request.Content.Headers.ContentType.CharSet = string.Empty;
 
             _logWriter.Log("RequestManager.txt", $"LoanKey:{LoanKey}. Request: {request.ToJSON()}");
-            _logWriter.Log("RequestManager.txt", $"LoanKey:{LoanKey}. RequestBody: {jsonData}");
+            _logWriter.Log("RequestManager.txt", $"LoanKey:{LoanKey}. RequestBody: {redactedJsonData}");
             DateTime dateRequest = DateTime.Now;
             HttpResponseMessage? httpResponseMessage = null;
             string responseBody = string.Empty;
