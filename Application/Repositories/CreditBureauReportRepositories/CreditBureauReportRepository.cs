@@ -1041,10 +1041,7 @@ public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : I
 
         using var connection = new SqlConnection(_databaseSettings.DBConnection);
         using var command = new SqlCommand(
-            @"SELECT TOP 1 l.App, l.Customer_ID
-              FROM CIB.dbo.Request_History rh WITH(NOLOCK)
-              JOIN dbo.Loan l WITH(NOLOCK) ON l.[key] = rh.Key_Abs_Loan
-              WHERE rh.[Key] = @LoanKey",
+            "SELECT TOP 1 App, Customer_ID FROM dbo.Loan WITH(NOLOCK) WHERE [key] = @LoanKey",
             connection);
 
         command.Parameters.Add("@LoanKey", SqlDbType.NVarChar, 64).Value = loanKey.Trim();
