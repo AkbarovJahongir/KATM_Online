@@ -940,6 +940,19 @@ public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : I
         await connection.CloseAsync();
     }
 
+    public async Task UpdateRequestHistoryStatusAsync(int loanKey, string status, CancellationToken cancellationToken)
+    {
+        using var connection = new SqlConnection(_databaseSettings.CIBConnection);
+        using var command = new SqlCommand(
+            "UPDATE [dbo].[Request_History] SET [status] = @status WHERE [Key_ABS_Loan] = @loanKey",
+            connection);
+        command.Parameters.AddWithValue("@loanKey", loanKey);
+        command.Parameters.AddWithValue("@status", status);
+        await connection.OpenAsync(cancellationToken);
+        await command.ExecuteNonQueryAsync(cancellationToken);
+        await connection.CloseAsync();
+    }
+
     public async Task InsertCi017RequestLogAsync(
         int loanKey,
         string? claimId,

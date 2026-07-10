@@ -52,6 +52,8 @@ public class CreditReportXmlServiceTests
         repository.Setup(r => r.UpsertCiStatusAsync(
                 It.IsAny<int>(), It.IsAny<int>(), It.IsAny<byte>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
+        repository.Setup(r => r.UpdateRequestHistoryStatusAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
         repository.Setup(r => r.GetLoanAppAndCustomerIdAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(((string?)null, (string?)null));
         repository.Setup(r => r.InsertCi017RequestLogAsync(
@@ -124,6 +126,7 @@ public class CreditReportXmlServiceTests
             It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<IRequestManagerRepository.IsXml>(), It.IsAny<CancellationToken>()),
             Times.Never);
         repository.Verify(r => r.UpsertCiStatusAsync(7, 17, 2, "Max attempts (3) reached", null, It.IsAny<CancellationToken>()), Times.Once);
+        repository.Verify(r => r.UpdateRequestHistoryStatusAsync(7, "09", It.IsAny<CancellationToken>()), Times.Once);
         telegram.Verify(t => t.NotifyErrorAsync(
             "CI-017 max attempts", It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -158,6 +161,26 @@ public class CreditReportXmlServiceTests
         await sut.CreditReportXml(application, CancellationToken.None);
         await sut.CreditReportXml(application, CancellationToken.None);
 
+        telegram.Verify(t => t.NotifyErrorAsync(
+            "CI-017 max attempts", It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreditReportStatusXml_WhenAttemptsAtNewLimitOfThree_DoesNotCallBureauAndUpdatesRequestHistoryStatus()
+    {
+        var (sut, requestManager, _, _, repository, telegram, _) = CreateSut();
+        var application = new LoanApplication { KeyCreditBureauKb = "23", PClaimId = "claim-23", Status = "03", PToken = "tok-23" };
+
+        repository.Setup(r => r.GetCi017StateAsync(23, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Ci017State(AttemptCount: 3, LastStatus: "03", LastAttemptAt: null));
+
+        await sut.CreditReportStatusXml(application, CancellationToken.None);
+
+        requestManager.Verify(r => r.SendPostRequest(
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<IRequestManagerRepository.IsXml>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        repository.Verify(r => r.UpsertCiStatusAsync(23, 17, 2, "Max attempts (3) reached", null, It.IsAny<CancellationToken>()), Times.Once);
+        repository.Verify(r => r.UpdateRequestHistoryStatusAsync(23, "09", It.IsAny<CancellationToken>()), Times.Once);
         telegram.Verify(t => t.NotifyErrorAsync(
             "CI-017 max attempts", It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Once);
     }

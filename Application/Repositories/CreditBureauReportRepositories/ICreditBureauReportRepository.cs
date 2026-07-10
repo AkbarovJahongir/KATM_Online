@@ -229,6 +229,12 @@ public interface ICreditBureauReportRepository
     /// </summary>
     Task ResetCi017AttemptAsync(int loanKey, string? newStatus, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Обновить бизнес-статус заявки в [dbo].[Request_History] (Key_ABS_Loan = loanKey).
+    /// Используется, например, чтобы выставить статус "09" после исчерпания попыток CI-017.
+    /// </summary>
+    Task UpdateRequestHistoryStatusAsync(int loanKey, string status, CancellationToken cancellationToken);
+
     Task IncrementCi017AttemptAsync(int loanKey, CancellationToken cancellationToken);
 
     /// <summary>
