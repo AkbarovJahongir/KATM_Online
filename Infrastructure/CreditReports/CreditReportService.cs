@@ -34,13 +34,27 @@ namespace Infrastructure.CreditReports
         private readonly ICreditBureauReportRepository _creditBureauReportRepository = creditBureauReportRepository;
         private readonly ITelegramNotificationService _telegramNotificationService = telegramNotificationService;
         private const string CreditReport017FullLogFile = "CreditReport017Full.txt";
-        private const int MaxCi017Attempts = 10;
+        private const int MaxCi017Attempts = 3;
         private readonly ConcurrentDictionary<int, byte> _notifiedMaxAttempts = new();
+
+        private async Task<(int AttemptCount, DateTime? LastAttemptAt)> EnsureCurrentCi017StateAsync(
+            int loanKey, string? currentStatus, CancellationToken cancellationToken)
+        {
+            var state = await _creditBureauReportRepository.GetCi017StateAsync(loanKey, cancellationToken);
+            if (state.LastStatus is null || state.LastStatus != currentStatus)
+            {
+                await _creditBureauReportRepository.ResetCi017AttemptAsync(loanKey, currentStatus, cancellationToken);
+                _notifiedMaxAttempts.TryRemove(loanKey, out _);
+                await _creditBureauReportRepository.UpsertCiStatusAsync(loanKey, 17, 0, $"Status changed to {currentStatus}: attempts reset", null, cancellationToken);
+                return (0, null);
+            }
+            return (state.AttemptCount, state.LastAttemptAt);
+        }
 
         public async Task CreditReport(LoanApplication loanApplications, CancellationToken cancellationToken)
         {
             var loanKey = int.Parse(loanApplications.KeyCreditBureauKb);
-            var attemptCount = await _creditBureauReportRepository.GetCi017AttemptCountAsync(loanKey, cancellationToken);
+            var (attemptCount, _) = await EnsureCurrentCi017StateAsync(loanKey, loanApplications.Status, cancellationToken);
             if (attemptCount >= MaxCi017Attempts)
             {
                 if (_notifiedMaxAttempts.TryAdd(loanKey, 0))
@@ -167,99 +181,102 @@ namespace Infrastructure.CreditReports
         {
             var loanKey = int.Parse(loanApplications.KeyCreditBureauKb);
 
-            while (!cancellationToken.IsCancellationRequested)
+            var (attemptCount, lastAttemptAt) = await EnsureCurrentCi017StateAsync(loanKey, loanApplications.Status, cancellationToken);
+            if (attemptCount >= MaxCi017Attempts)
             {
-                var attemptCount = await _creditBureauReportRepository.GetCi017AttemptCountAsync(loanKey, cancellationToken);
-                if (attemptCount >= MaxCi017Attempts)
+                if (_notifiedMaxAttempts.TryAdd(loanKey, 0))
                 {
-                    if (_notifiedMaxAttempts.TryAdd(loanKey, 0))
-                    {
-                        await NotifyErrorAsync("CI-017 max attempts", loanApplications, $"Max attempts ({MaxCi017Attempts}) reached", cancellationToken);
-                    }
-                    await _creditBureauReportRepository.UpsertCiStatusAsync(loanKey, 17, 2, $"Max attempts ({MaxCi017Attempts}) reached", null, cancellationToken);
+                    await NotifyErrorAsync("CI-017 max attempts", loanApplications, $"Max attempts ({MaxCi017Attempts}) reached", cancellationToken);
+                }
+                await _creditBureauReportRepository.UpsertCiStatusAsync(loanKey, 17, 2, $"Max attempts ({MaxCi017Attempts}) reached", null, cancellationToken);
+                return;
+            }
+
+            if (lastAttemptAt is not null &&
+                DateTime.UtcNow - lastAttemptAt.Value < TimeSpan.FromMilliseconds(_options.CheckReportStatusInterval))
+            {
+                return;
+            }
+
+            try
+            {
+                var creditReportStatusRequest = new CreditReportStatusRequest
+                {
+                    pHead = _options.PHead,
+                    pCode = _options.PCode,
+                    pReportFormat = 0,
+                    pClaimId = loanApplications.PClaimId,
+                    pToken = loanApplications.PToken!
+                };
+                var request = new BaseRequest<CreditReportStatusRequest>() { Data = creditReportStatusRequest, Security = _requestSecurity };
+                var requestJson = request.ToJSON();
+                _logWriter.Log("CreditReportStatusRequest.txt", $"KeyAbsLoan:ClaimId: {loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyCreditBureauKb} - {DateTime.Now}\n\n" + requestJson);
+                Console.WriteLine($"CI-017 Status Request. LoanKey:{loanApplications.KeyCreditBureauKb} ClaimId:{loanApplications.PClaimId}\n{requestJson}");
+                _logWriter.Log(
+                    CreditReport017FullLogFile,
+                    $"Type: CI-017 Status Request\nKeyLoanHistoryKb: {loanApplications.KeyCreditBureauKb}\nClaimId: {loanApplications.PClaimId}\n{requestJson}");
+
+                var dateRequest = DateTime.Now;
+                var response = await _requestManagerService.SendPostRequest(
+                    _options.HostAddress + _options.ReportStatusUrl,
+                    requestJson,
+                    loanApplications.KeyCreditBureauKb,
+                    IRequestManagerRepository.IsXml.NotXml,
+                    cancellationToken);
+                var dateResponse = DateTime.Now;
+
+                await _requestManagerRepository.InsertRequestLog(
+                    _options.HostAddress + _options.ReportStatusUrl,
+                    requestJson,
+                    "POST",
+                    string.IsNullOrWhiteSpace(response) ? "0" : "200",
+                    response,
+                    dateRequest,
+                    dateResponse,
+                    loanApplications.KeyCreditBureauKb,
+                    cancellationToken);
+
+                _logWriter.Log(
+                    CreditReport017FullLogFile,
+                    $"Type: CI-017 Status Response\nKeyLoanHistoryKb: {loanApplications.KeyCreditBureauKb}\nClaimId: {loanApplications.PClaimId}\n{response}");
+
+                await _creditBureauReportRepository.IncrementCi017AttemptAsync(loanKey, cancellationToken);
+
+                if (string.IsNullOrWhiteSpace(response))
+                {
                     return;
                 }
 
-                try
+                var baseResponse = JsonConvert.DeserializeObject<BaseResponse<CreditReportStatusResponse>>(response);
+                _logWriter.Log("CreditReportStatusResponse.txt", $"KeyAbsLoan:ClaimId: {loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyCreditBureauKb} - {DateTime.Now}\n\n" + baseResponse?.ToJSON());
+
+                if (baseResponse.data.result == CreditBureauResultCodes.SUCCESS_05000)
                 {
-                    var creditReportStatusRequest = new CreditReportStatusRequest
-                    {
-                        pHead = _options.PHead,
-                        pCode = _options.PCode,
-                        pReportFormat = 0,
-                        pClaimId = loanApplications.PClaimId,
-                        pToken = loanApplications.PToken!
-                    };
-                    var request = new BaseRequest<CreditReportStatusRequest>() { Data = creditReportStatusRequest, Security = _requestSecurity };
-                    var requestJson = request.ToJSON();
-                    _logWriter.Log("CreditReportStatusRequest.txt", $"KeyAbsLoan:ClaimId: {loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyCreditBureauKb} - {DateTime.Now}\n\n" + requestJson);
-                    Console.WriteLine($"CI-017 Status Request. LoanKey:{loanApplications.KeyCreditBureauKb} ClaimId:{loanApplications.PClaimId}\n{requestJson}");
-                    _logWriter.Log(
-                        CreditReport017FullLogFile,
-                        $"Type: CI-017 Status Request\nKeyLoanHistoryKb: {loanApplications.KeyCreditBureauKb}\nClaimId: {loanApplications.PClaimId}\n{requestJson}");
-
-                    var dateRequest = DateTime.Now;
-                    var response = await _requestManagerService.SendPostRequest(
-                        _options.HostAddress + _options.ReportStatusUrl,
-                        requestJson,
-                        loanApplications.KeyCreditBureauKb,
-                        IRequestManagerRepository.IsXml.NotXml,
-                        cancellationToken);
-                    var dateResponse = DateTime.Now;
-
-                    await _requestManagerRepository.InsertRequestLog(
-                        _options.HostAddress + _options.ReportStatusUrl,
-                        requestJson,
-                        "POST",
-                        string.IsNullOrWhiteSpace(response) ? "0" : "200",
-                        response,
-                        dateRequest,
-                        dateResponse,
-                        loanApplications.KeyCreditBureauKb,
-                        cancellationToken);
-
-                    _logWriter.Log(
-                        CreditReport017FullLogFile,
-                        $"Type: CI-017 Status Response\nKeyLoanHistoryKb: {loanApplications.KeyCreditBureauKb}\nClaimId: {loanApplications.PClaimId}\n{response}");
-
-                    await _creditBureauReportRepository.IncrementCi017AttemptAsync(loanKey, cancellationToken);
-
-                    if (string.IsNullOrWhiteSpace(response))
-                    {
-                        return;
-                    }
-
-                    var baseResponse = JsonConvert.DeserializeObject<BaseResponse<CreditReportStatusResponse>>(response);
-                    _logWriter.Log("CreditReportStatusResponse.txt", $"KeyAbsLoan:ClaimId: {loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyCreditBureauKb} - {DateTime.Now}\n\n" + baseResponse?.ToJSON());
-
-                    if (baseResponse.data.result == CreditBureauResultCodes.SUCCESS_05000)
-                    {
-                        await _helperRepository.KatmHelper(loanApplications.KeyCreditBureauKb, baseResponse.data.reportBase64, IHelperRepository.TypeOperation.Base64, cancellationToken);
-                        await _creditBureauReportRepository.UpsertCiStatusAsync(int.Parse(loanApplications.KeyCreditBureauKb), 17, 1, "Success", null, cancellationToken);
-                        return;
-                    }
-                    else if (baseResponse.data.result == CreditBureauResultCodes.IDENTICAL_REQUEST)
-                    {
-                        await _helperRepository.KatmHelper(loanApplications.KeyCreditBureauKb, 5.ToJSON(), IHelperRepository.TypeOperation.AddNextAccess, cancellationToken);
-                        await _creditBureauReportRepository.UpsertCiStatusAsync(int.Parse(loanApplications.KeyCreditBureauKb), 17, 2, "Identical request", null, cancellationToken);
-                        return;
-                    }
-                    else if (baseResponse.data.result == CreditBureauResultCodes.WAIT_AND_TRY_AGAIN)
-                    {
-                        await _helperRepository.KatmHelper(loanApplications.KeyCreditBureauKb, 1.ToJSON(), IHelperRepository.TypeOperation.AddNextAccess, cancellationToken);
-                        await _creditBureauReportRepository.UpsertCiStatusAsync(int.Parse(loanApplications.KeyCreditBureauKb), 17, 0, "Waiting", loanApplications.PToken, cancellationToken);
-                        await Task.Delay(_options.CheckReportStatusInterval, cancellationToken);
-                    }
-                    else
-                    {
-                        return;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logWriter.Log("CreditReportStatusResponse.txt", $"KeyAbsLoan:ClaimId: {loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyCreditBureauKb} - {DateTime.Now}\n\n" + ex.Message);
+                    await _helperRepository.KatmHelper(loanApplications.KeyCreditBureauKb, baseResponse.data.reportBase64, IHelperRepository.TypeOperation.Base64, cancellationToken);
+                    await _creditBureauReportRepository.UpsertCiStatusAsync(int.Parse(loanApplications.KeyCreditBureauKb), 17, 1, "Success", null, cancellationToken);
                     return;
                 }
+                else if (baseResponse.data.result == CreditBureauResultCodes.IDENTICAL_REQUEST)
+                {
+                    await _helperRepository.KatmHelper(loanApplications.KeyCreditBureauKb, 5.ToJSON(), IHelperRepository.TypeOperation.AddNextAccess, cancellationToken);
+                    await _creditBureauReportRepository.UpsertCiStatusAsync(int.Parse(loanApplications.KeyCreditBureauKb), 17, 2, "Identical request", null, cancellationToken);
+                    return;
+                }
+                else if (baseResponse.data.result == CreditBureauResultCodes.WAIT_AND_TRY_AGAIN)
+                {
+                    await _helperRepository.KatmHelper(loanApplications.KeyCreditBureauKb, 1.ToJSON(), IHelperRepository.TypeOperation.AddNextAccess, cancellationToken);
+                    await _creditBureauReportRepository.UpsertCiStatusAsync(int.Parse(loanApplications.KeyCreditBureauKb), 17, 0, "Waiting", loanApplications.PToken, cancellationToken);
+                    return;
+                }
+                else
+                {
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logWriter.Log("CreditReportStatusResponse.txt", $"KeyAbsLoan:ClaimId: {loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyCreditBureauKb} - {DateTime.Now}\n\n" + ex.Message);
+                return;
             }
         }
 

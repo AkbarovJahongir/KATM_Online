@@ -893,26 +893,48 @@ public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : I
             PDate = GetString(reader, "pDate"),              // [ДатаОтправки]
         };
     }
-    public async Task<int> GetCi017AttemptCountAsync(int loanKey, CancellationToken cancellationToken)
-    {
-        using var connection = new SqlConnection(_databaseSettings.CIBConnection);
-        using var command = new SqlCommand(
-            "SELECT ISNULL(ci017Attempt, 0) FROM [dbo].[Katm_Methods_Request] WHERE [loanKey] = @loanKey",
-            connection);
-        command.Parameters.AddWithValue("@loanKey", loanKey);
-        await connection.OpenAsync(cancellationToken);
-        var result = await command.ExecuteScalarAsync(cancellationToken);
-        await connection.CloseAsync();
-        return result == DBNull.Value ? 0 : Convert.ToInt32(result);
-    }
-
     public async Task IncrementCi017AttemptAsync(int loanKey, CancellationToken cancellationToken)
     {
         using var connection = new SqlConnection(_databaseSettings.CIBConnection);
         using var command = new SqlCommand(
-            "UPDATE [dbo].[Katm_Methods_Request] SET ci017Attempt = ISNULL(ci017Attempt, 0) + 1 WHERE [loanKey] = @loanKey",
+            "UPDATE [dbo].[Katm_Methods_Request] SET ci017Attempt = ISNULL(ci017Attempt, 0) + 1, LastCi017AttemptAt = SYSUTCDATETIME() WHERE [loanKey] = @loanKey",
             connection);
         command.Parameters.AddWithValue("@loanKey", loanKey);
+        await connection.OpenAsync(cancellationToken);
+        await command.ExecuteNonQueryAsync(cancellationToken);
+        await connection.CloseAsync();
+    }
+
+    public async Task<Ci017State> GetCi017StateAsync(int loanKey, CancellationToken cancellationToken)
+    {
+        using var connection = new SqlConnection(_databaseSettings.CIBConnection);
+        using var command = new SqlCommand(
+            "SELECT ISNULL(ci017Attempt, 0) AS AttemptCount, LastStatus, LastCi017AttemptAt FROM [dbo].[Katm_Methods_Request] WHERE [loanKey] = @loanKey",
+            connection);
+        command.Parameters.AddWithValue("@loanKey", loanKey);
+        await connection.OpenAsync(cancellationToken);
+        using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
+        if (!await reader.ReadAsync(cancellationToken))
+        {
+            return new Ci017State(0, null, null);
+        }
+
+        var attemptCount = reader["AttemptCount"] is DBNull ? 0 : Convert.ToInt32(reader["AttemptCount"]);
+        var lastStatus = reader["LastStatus"] is DBNull ? null : reader["LastStatus"].ToString();
+        var lastAttemptAt = reader["LastCi017AttemptAt"] is DBNull ? (DateTime?)null : Convert.ToDateTime(reader["LastCi017AttemptAt"]);
+
+        return new Ci017State(attemptCount, lastStatus, lastAttemptAt);
+    }
+
+    public async Task ResetCi017AttemptAsync(int loanKey, string? newStatus, CancellationToken cancellationToken)
+    {
+        using var connection = new SqlConnection(_databaseSettings.CIBConnection);
+        using var command = new SqlCommand(
+            "UPDATE [dbo].[Katm_Methods_Request] SET ci017Attempt = 0, LastStatus = @newStatus, LastCi017AttemptAt = NULL WHERE [loanKey] = @loanKey",
+            connection);
+        command.Parameters.AddWithValue("@loanKey", loanKey);
+        command.Parameters.AddWithValue("@newStatus", (object?)newStatus ?? DBNull.Value);
         await connection.OpenAsync(cancellationToken);
         await command.ExecuteNonQueryAsync(cancellationToken);
         await connection.CloseAsync();

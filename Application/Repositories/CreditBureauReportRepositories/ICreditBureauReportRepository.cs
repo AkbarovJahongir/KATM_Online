@@ -216,7 +216,18 @@ public interface ICreditBureauReportRepository
     /// </summary>
     public Task<List<CreditBureauReportQueueItem<CreditRegistrationSubjectRequest>>>
         GetCreditRegistrationSubjectRequestsAsync(CancellationToken cancellationToken);
-    Task<int> GetCi017AttemptCountAsync(int loanKey, CancellationToken cancellationToken);
+    /// <summary>
+    /// Получить текущее состояние CI-017 для займа: число попыток, последний увиденный
+    /// бизнес-статус заявки и время последней реальной попытки обращения к бюро.
+    /// </summary>
+    Task<Ci017State> GetCi017StateAsync(int loanKey, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Обнулить счётчик попыток CI-017 и зафиксировать новый бизнес-статус заявки.
+    /// Вызывается, когда GetCi017StateAsync обнаруживает, что статус заявки изменился
+    /// с прошлого раза — старые попытки больше не актуальны.
+    /// </summary>
+    Task ResetCi017AttemptAsync(int loanKey, string? newStatus, CancellationToken cancellationToken);
 
     Task IncrementCi017AttemptAsync(int loanKey, CancellationToken cancellationToken);
 
