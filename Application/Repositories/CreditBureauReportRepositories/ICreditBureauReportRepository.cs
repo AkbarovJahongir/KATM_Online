@@ -224,8 +224,8 @@ public interface ICreditBureauReportRepository
 
     /// <summary>
     /// Обнулить счётчик попыток CI-017 и зафиксировать новый бизнес-статус заявки.
-    /// Вызывается, когда GetCi017StateAsync обнаруживает, что статус заявки изменился
-    /// с прошлого раза — старые попытки больше не актуальны.
+    /// Вызывается, когда попытки уже исчерпаны и статус заявки с тех пор изменился —
+    /// старые попытки больше не актуальны, обработку можно возобновить.
     /// </summary>
     Task ResetCi017AttemptAsync(int loanKey, string? newStatus, CancellationToken cancellationToken);
 
@@ -235,7 +235,11 @@ public interface ICreditBureauReportRepository
     /// </summary>
     Task UpdateRequestHistoryStatusAsync(int loanKey, string status, CancellationToken cancellationToken);
 
-    Task IncrementCi017AttemptAsync(int loanKey, CancellationToken cancellationToken);
+    /// <summary>
+    /// Увеличить счётчик попыток CI-017 и зафиксировать статус заявки, при котором
+    /// была сделана эта попытка (используется для последующего сравнения в GetCi017StateAsync).
+    /// </summary>
+    Task IncrementCi017AttemptAsync(int loanKey, string? currentStatus, CancellationToken cancellationToken);
 
     /// <summary>
     /// Записать запрос/ответ CI-017 (отчёт или проверка статуса) в Ci017RequestLog.

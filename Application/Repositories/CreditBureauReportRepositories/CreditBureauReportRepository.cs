@@ -893,13 +893,14 @@ public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : I
             PDate = GetString(reader, "pDate"),              // [ДатаОтправки]
         };
     }
-    public async Task IncrementCi017AttemptAsync(int loanKey, CancellationToken cancellationToken)
+    public async Task IncrementCi017AttemptAsync(int loanKey, string? currentStatus, CancellationToken cancellationToken)
     {
         using var connection = new SqlConnection(_databaseSettings.CIBConnection);
         using var command = new SqlCommand(
-            "UPDATE [dbo].[Katm_Methods_Request] SET ci017Attempt = ISNULL(ci017Attempt, 0) + 1, LastCi017AttemptAt = SYSUTCDATETIME() WHERE [loanKey] = @loanKey",
+            "UPDATE [dbo].[Katm_Methods_Request] SET ci017Attempt = ISNULL(ci017Attempt, 0) + 1, LastStatus = @currentStatus, LastCi017AttemptAt = SYSUTCDATETIME() WHERE [loanKey] = @loanKey",
             connection);
         command.Parameters.AddWithValue("@loanKey", loanKey);
+        command.Parameters.AddWithValue("@currentStatus", (object?)currentStatus ?? DBNull.Value);
         await connection.OpenAsync(cancellationToken);
         await command.ExecuteNonQueryAsync(cancellationToken);
         await connection.CloseAsync();

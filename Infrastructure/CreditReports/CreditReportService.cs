@@ -41,7 +41,8 @@ namespace Infrastructure.CreditReports
             int loanKey, string? currentStatus, CancellationToken cancellationToken)
         {
             var state = await _creditBureauReportRepository.GetCi017StateAsync(loanKey, cancellationToken);
-            if (state.LastStatus is null || state.LastStatus != currentStatus)
+            if (state.LastStatus is null ||
+                (state.LastStatus != currentStatus && state.AttemptCount >= MaxCi017Attempts))
             {
                 await _creditBureauReportRepository.ResetCi017AttemptAsync(loanKey, currentStatus, cancellationToken);
                 _notifiedMaxAttempts.TryRemove(loanKey, out _);
@@ -114,7 +115,7 @@ namespace Infrastructure.CreditReports
                     CreditReport017FullLogFile,
                     $"Type: CI-017 Response\nKeyLoanHistoryKb: {loanApplications.KeyCreditBureauKb}\nClaimId: {loanApplications.PClaimId}\n{response}");
 
-                await _creditBureauReportRepository.IncrementCi017AttemptAsync(loanKey, cancellationToken);
+                await _creditBureauReportRepository.IncrementCi017AttemptAsync(loanKey, loanApplications.Status, cancellationToken);
 
                 if (string.IsNullOrWhiteSpace(response))
                 {
@@ -242,7 +243,7 @@ namespace Infrastructure.CreditReports
                     CreditReport017FullLogFile,
                     $"Type: CI-017 Status Response\nKeyLoanHistoryKb: {loanApplications.KeyCreditBureauKb}\nClaimId: {loanApplications.PClaimId}\n{response}");
 
-                await _creditBureauReportRepository.IncrementCi017AttemptAsync(loanKey, cancellationToken);
+                await _creditBureauReportRepository.IncrementCi017AttemptAsync(loanKey, loanApplications.Status, cancellationToken);
 
                 if (string.IsNullOrWhiteSpace(response))
                 {

@@ -47,7 +47,7 @@ public class CreditReportXmlServiceTests
 
         repository.Setup(r => r.ResetCi017AttemptAsync(It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
-        repository.Setup(r => r.IncrementCi017AttemptAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+        repository.Setup(r => r.IncrementCi017AttemptAsync(It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         repository.Setup(r => r.UpsertCiStatusAsync(
                 It.IsAny<int>(), It.IsAny<int>(), It.IsAny<byte>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
@@ -109,6 +109,29 @@ public class CreditReportXmlServiceTests
             42, 17, 0, It.Is<string?>(m => m != null && m.Contains("reset")), null, It.IsAny<CancellationToken>()), Times.Once);
         requestManager.Verify(r => r.SendPostRequest(
             It.IsAny<string>(), It.IsAny<string>(), "42", IRequestManagerRepository.IsXml.Xml, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreditReportXml_WhenStatusChangedButAttemptsNotExhausted_DoesNotResetAndStillCallsBureau()
+    {
+        // Regression test: normal workflow progression (e.g. "00"/"01" -> "02" set by
+        // SenderClaimsXmlAsync) must not grant a fresh attempt budget - only a genuine
+        // status change *after* attempts were exhausted should reset the counter.
+        var (sut, requestManager, _, _, repository, _, _) = CreateSut();
+        var application = new LoanApplication { KeyCreditBureauKb = "43", PClaimId = "claim-43", Status = "02" };
+
+        repository.Setup(r => r.GetCi017StateAsync(43, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Ci017State(AttemptCount: 1, LastStatus: "01", LastAttemptAt: null));
+        requestManager.Setup(r => r.SendPostRequest(
+                It.IsAny<string>(), It.IsAny<string>(), "43", IRequestManagerRepository.IsXml.Xml, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(WaitAndTryAgainResponse);
+
+        await sut.CreditReportXml(application, CancellationToken.None);
+
+        repository.Verify(r => r.ResetCi017AttemptAsync(It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
+        requestManager.Verify(r => r.SendPostRequest(
+            It.IsAny<string>(), It.IsAny<string>(), "43", IRequestManagerRepository.IsXml.Xml, It.IsAny<CancellationToken>()), Times.Once);
+        repository.Verify(r => r.IncrementCi017AttemptAsync(43, "02", It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -201,7 +224,7 @@ public class CreditReportXmlServiceTests
         requestManager.Verify(r => r.SendPostRequest(
             It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<IRequestManagerRepository.IsXml>(), It.IsAny<CancellationToken>()),
             Times.Never);
-        repository.Verify(r => r.IncrementCi017AttemptAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+        repository.Verify(r => r.IncrementCi017AttemptAsync(It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -222,7 +245,7 @@ public class CreditReportXmlServiceTests
 
         requestManager.Verify(r => r.SendPostRequest(
             It.IsAny<string>(), It.IsAny<string>(), "21", IRequestManagerRepository.IsXml.Xml, It.IsAny<CancellationToken>()), Times.Once);
-        repository.Verify(r => r.IncrementCi017AttemptAsync(21, It.IsAny<CancellationToken>()), Times.Once);
+        repository.Verify(r => r.IncrementCi017AttemptAsync(21, "03", It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
