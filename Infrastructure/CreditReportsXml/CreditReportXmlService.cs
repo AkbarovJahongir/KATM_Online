@@ -226,8 +226,15 @@ namespace Infrastructure.CreditReportsXml
                 return;
             }
 
+            // LastCi017AttemptAt хранится в БД как локальное время Ташкента (UTC+5)
             if (ci017State.LastAttemptAt is not null &&
-                DateTime.UtcNow - ci017State.LastAttemptAt.Value < TimeSpan.FromMilliseconds(_options.CheckReportStatusInterval))
+                DateTime.UtcNow.AddHours(5) - ci017State.LastAttemptAt.Value < TimeSpan.FromMilliseconds(_options.CheckReportStatusInterval))
+            {
+                return;
+            }
+
+            // Без токена нечего проверять на бюро - значит запрос CI-017 (/credit/report) ещё не выполнялся
+            if (string.IsNullOrEmpty(loanApplications.PToken))
             {
                 return;
             }

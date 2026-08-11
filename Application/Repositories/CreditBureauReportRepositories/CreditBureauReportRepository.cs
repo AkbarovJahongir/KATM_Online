@@ -897,7 +897,7 @@ public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : I
     {
         using var connection = new SqlConnection(_databaseSettings.CIBConnection);
         using var command = new SqlCommand(
-            "UPDATE [dbo].[Katm_Methods_Request] SET ci017Attempt = ISNULL(ci017Attempt, 0) + 1, LastStatus = @currentStatus, LastCi017AttemptAt = SYSUTCDATETIME() WHERE [loanKey] = @loanKey",
+            "UPDATE [dbo].[Katm_Methods_Request] SET ci017Attempt = ISNULL(ci017Attempt, 0) + 1, LastStatus = @currentStatus, LastCi017AttemptAt = DATEADD(HOUR, 5, SYSUTCDATETIME()) WHERE [loanKey] = @loanKey",
             connection);
         command.Parameters.AddWithValue("@loanKey", loanKey);
         command.Parameters.AddWithValue("@currentStatus", (object?)currentStatus ?? DBNull.Value);
