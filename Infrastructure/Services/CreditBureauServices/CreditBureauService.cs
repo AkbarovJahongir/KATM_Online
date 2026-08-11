@@ -19,16 +19,12 @@ namespace Infrastructure.Services.CreditBureauServices
                 cancellationToken.ThrowIfCancellationRequested();
                 try
                 {
-                    if (application.Status is "00" or "01")
+                    if (application.Status == "00")
                     {
                         await _creditRegistrationService.SenderClaimsAsync(application, cancellationToken);
                         await _creditReportService.CreditReport(application, cancellationToken);
                     }
-                    else if (application.Status == "02")
-                    {
-                        await _creditReportService.CreditReport(application, cancellationToken);
-                    }
-                    else if (application.Status == "03")
+                    else if (application.Status is "02" or "03")
                     {
                         await _creditReportService.CreditReportStatus(application, cancellationToken);
                     }

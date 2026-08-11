@@ -14,16 +14,12 @@ namespace Infrastructure.Services.CreditBureauXmlServices
             var loanApplications = await _repository.GetLoanApplicationsXml(cancellationToken);
             foreach (var application in loanApplications)
             {
-                if (application.Status is "00" or "01")
+                if (application.Status == "00")
                 {
                     await _creditRegistrationService.SenderClaimsXmlAsync(application, cancellationToken);
                     await _creditReportService.CreditReportXml(application, cancellationToken);
                 }
-                if (application.Status == "02")
-                {
-                    await _creditReportService.CreditReportXml(application, cancellationToken);
-                }
-                else if (application.Status == "03")
+                else if (application.Status is "02" or "03")
                 {
                     await _creditReportService.CreditReportStatusXml(application, cancellationToken);
                 }
