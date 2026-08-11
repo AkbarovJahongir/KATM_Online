@@ -40,26 +40,11 @@ namespace Infrastructure.CreditReportsXml
         private const int MaxCi017Attempts = 3;
         private readonly ConcurrentDictionary<int, byte> _notifiedMaxAttempts = new();
 
-        private async Task<(int AttemptCount, DateTime? LastAttemptAt)> EnsureCurrentCi017StateAsync(
-            int loanKey, string? currentStatus, CancellationToken cancellationToken)
-        {
-            var state = await _creditBureauReportRepository.GetCi017StateAsync(loanKey, cancellationToken);
-            if (state.LastStatus is null ||
-                (state.LastStatus != currentStatus && state.AttemptCount >= MaxCi017Attempts))
-            {
-                await _creditBureauReportRepository.ResetCi017AttemptAsync(loanKey, currentStatus, cancellationToken);
-                _notifiedMaxAttempts.TryRemove(loanKey, out _);
-                await _creditBureauReportRepository.UpsertCiStatusAsync(loanKey, 17, 0, $"Status changed to {currentStatus}: attempts reset", null, cancellationToken);
-                return (0, null);
-            }
-            return (state.AttemptCount, state.LastAttemptAt);
-        }
-
         public async Task CreditReportXml(LoanApplication loanApplications, CancellationToken cancellationToken)
         {
             var loanKey = int.Parse(loanApplications.KeyCreditBureauKb);
-            var (attemptCount, _) = await EnsureCurrentCi017StateAsync(loanKey, loanApplications.Status, cancellationToken);
-            if (attemptCount >= MaxCi017Attempts)
+            var ci017State = await _creditBureauReportRepository.GetCi017StateAsync(loanKey, cancellationToken);
+            if (ci017State.AttemptCount >= MaxCi017Attempts)
             {
                 if (_notifiedMaxAttempts.TryAdd(loanKey, 0))
                 {
@@ -121,7 +106,7 @@ namespace Infrastructure.CreditReportsXml
                     $"Type: CI-017 XML Response\nKeyLoanHistoryKb: {loanApplications.KeyCreditBureauKb}\nClaimId: {loanApplications.PClaimId}\n{response}");
 
                 await _creditBureauReportRepository.InsertCi017RequestLogAsync(
-                    loanKey, loanApplications.PClaimId, "Report", attemptCount + 1,
+                    loanKey, loanApplications.PClaimId, "Report", ci017State.AttemptCount + 1,
                     requestJson, response, dateRequest, dateResponse, cancellationToken);
 
                 await _creditBureauReportRepository.IncrementCi017AttemptAsync(loanKey, loanApplications.Status, cancellationToken);
@@ -178,6 +163,10 @@ namespace Infrastructure.CreditReportsXml
                         await _creditBureauReportRepository.UpsertCiStatusAsync(
                             int.Parse(loanApplications.KeyCreditBureauKb), 17, 0, "Waiting", baseResponse.data.token,
                             cancellationToken);
+
+                        // Immediately check status with received token
+                        loanApplications.PToken = baseResponse.data.token;
+                        await CreditReportStatusXml(loanApplications, cancellationToken);
                         return;
                     }
                 }
@@ -225,8 +214,8 @@ namespace Infrastructure.CreditReportsXml
         {
             var loanKey = int.Parse(loanApplications.KeyCreditBureauKb);
 
-            var (attemptCount, lastAttemptAt) = await EnsureCurrentCi017StateAsync(loanKey, loanApplications.Status, cancellationToken);
-            if (attemptCount >= MaxCi017Attempts)
+            var ci017State = await _creditBureauReportRepository.GetCi017StateAsync(loanKey, cancellationToken);
+            if (ci017State.AttemptCount >= MaxCi017Attempts)
             {
                 if (_notifiedMaxAttempts.TryAdd(loanKey, 0))
                 {
@@ -237,8 +226,8 @@ namespace Infrastructure.CreditReportsXml
                 return;
             }
 
-            if (lastAttemptAt is not null &&
-                DateTime.UtcNow - lastAttemptAt.Value < TimeSpan.FromMilliseconds(_options.CheckReportStatusInterval))
+            if (ci017State.LastAttemptAt is not null &&
+                DateTime.UtcNow - ci017State.LastAttemptAt.Value < TimeSpan.FromMilliseconds(_options.CheckReportStatusInterval))
             {
                 return;
             }
@@ -290,7 +279,7 @@ namespace Infrastructure.CreditReportsXml
                     $"Type: CI-017 XML Status Response\nKeyLoanHistoryKb: {loanApplications.KeyCreditBureauKb}\nClaimId: {loanApplications.PClaimId}\n{response}");
 
                 await _creditBureauReportRepository.InsertCi017RequestLogAsync(
-                    loanKey, loanApplications.PClaimId, "StatusRequest", attemptCount + 1,
+                    loanKey, loanApplications.PClaimId, "StatusRequest", ci017State.AttemptCount + 1,
                     requestJson, response, dateRequest, dateResponse, cancellationToken);
 
                 await _creditBureauReportRepository.IncrementCi017AttemptAsync(loanKey, loanApplications.Status, cancellationToken);

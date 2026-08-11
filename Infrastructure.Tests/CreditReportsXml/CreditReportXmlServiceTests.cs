@@ -90,33 +90,31 @@ public class CreditReportXmlServiceTests
     private const string WaitAndTryAgainResponse =
         """{"data":{"result":"05050","resultMessage":null,"reportBase64":null,"token":"tok-123"},"errorMessage":null,"code":0}""";
 
+    private const string SuccessResponse =
+        """{"data":{"result":"05000","resultMessage":"Success","reportBase64":"SGVsbG8gV29ybGQ=","token":null},"errorMessage":null,"code":0}""";
+
     [Fact]
-    public async Task CreditReportXml_WhenStatusChangedSincePreviousRun_ResetsAttemptCounterBeforeEvaluatingLimit()
+    public async Task CreditReportXml_WhenAttemptsExhaustedUnderPreviousStatus_DoesNotResetCounterAndSkipsBureauCall()
     {
         var (sut, requestManager, _, _, repository, _, _) = CreateSut();
         var application = new LoanApplication { KeyCreditBureauKb = "42", PClaimId = "claim-42", Status = "02" };
 
         repository.Setup(r => r.GetCi017StateAsync(42, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Ci017State(AttemptCount: 5, LastStatus: "01", LastAttemptAt: null));
-        requestManager.Setup(r => r.SendPostRequest(
-                It.IsAny<string>(), It.IsAny<string>(), "42", IRequestManagerRepository.IsXml.Xml, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(WaitAndTryAgainResponse);
 
         await sut.CreditReportXml(application, CancellationToken.None);
 
-        repository.Verify(r => r.ResetCi017AttemptAsync(42, "02", It.IsAny<CancellationToken>()), Times.Once);
-        repository.Verify(r => r.UpsertCiStatusAsync(
-            42, 17, 0, It.Is<string?>(m => m != null && m.Contains("reset")), null, It.IsAny<CancellationToken>()), Times.Once);
+        repository.Verify(r => r.ResetCi017AttemptAsync(It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
         requestManager.Verify(r => r.SendPostRequest(
-            It.IsAny<string>(), It.IsAny<string>(), "42", IRequestManagerRepository.IsXml.Xml, It.IsAny<CancellationToken>()), Times.Once);
+            It.IsAny<string>(), It.IsAny<string>(), "42", IRequestManagerRepository.IsXml.Xml, It.IsAny<CancellationToken>()), Times.Never);
+        repository.Verify(r => r.UpsertCiStatusAsync(42, 17, 2, "Max attempts (3) reached", null, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
     public async Task CreditReportXml_WhenStatusChangedButAttemptsNotExhausted_DoesNotResetAndStillCallsBureau()
     {
-        // Regression test: normal workflow progression (e.g. "00"/"01" -> "02" set by
-        // SenderClaimsXmlAsync) must not grant a fresh attempt budget - only a genuine
-        // status change *after* attempts were exhausted should reset the counter.
+        // The CI-017 attempt counter is never reset on a status change - the request
+        // may be sent at most MaxCi017Attempts times per loan, regardless of status.
         var (sut, requestManager, _, _, repository, _, _) = CreateSut();
         var application = new LoanApplication { KeyCreditBureauKb = "43", PClaimId = "claim-43", Status = "02" };
 
@@ -130,8 +128,8 @@ public class CreditReportXmlServiceTests
 
         repository.Verify(r => r.ResetCi017AttemptAsync(It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
         requestManager.Verify(r => r.SendPostRequest(
-            It.IsAny<string>(), It.IsAny<string>(), "43", IRequestManagerRepository.IsXml.Xml, It.IsAny<CancellationToken>()), Times.Once);
-        repository.Verify(r => r.IncrementCi017AttemptAsync(43, "02", It.IsAny<CancellationToken>()), Times.Once);
+            It.IsAny<string>(), It.IsAny<string>(), "43", IRequestManagerRepository.IsXml.Xml, It.IsAny<CancellationToken>()), Times.Exactly(2));
+        repository.Verify(r => r.IncrementCi017AttemptAsync(43, "02", It.IsAny<CancellationToken>()), Times.Exactly(2));
     }
 
     [Fact]
@@ -186,6 +184,31 @@ public class CreditReportXmlServiceTests
 
         telegram.Verify(t => t.NotifyErrorAsync(
             "CI-017 max attempts", It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreditReportXml_WhenReceives05050WithToken_ImmediatelyChecksStatus()
+    {
+        var (sut, requestManager, _, _, repository, _, _) = CreateSut();
+        var application = new LoanApplication { KeyCreditBureauKb = "44", PClaimId = "claim-44", Status = "02" };
+
+        repository.Setup(r => r.GetCi017StateAsync(44, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Ci017State(AttemptCount: 0, LastStatus: "02", LastAttemptAt: null));
+
+        var callSequence = 0;
+        requestManager.Setup(r => r.SendPostRequest(
+                It.IsAny<string>(), It.IsAny<string>(), "44", IRequestManagerRepository.IsXml.Xml, It.IsAny<CancellationToken>()))
+            .Returns(() =>
+            {
+                callSequence++;
+                return Task.FromResult(callSequence == 1 ? WaitAndTryAgainResponse : SuccessResponse);
+            });
+
+        await sut.CreditReportXml(application, CancellationToken.None);
+
+        requestManager.Verify(r => r.SendPostRequest(
+            It.IsAny<string>(), It.IsAny<string>(), "44", IRequestManagerRepository.IsXml.Xml, It.IsAny<CancellationToken>()), Times.Exactly(2));
+        repository.Verify(r => r.UpsertCiStatusAsync(44, 17, 1, "Success", null, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
