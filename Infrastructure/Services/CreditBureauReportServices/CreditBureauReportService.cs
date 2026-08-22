@@ -1,4 +1,5 @@
 using Infrastructure.Services.CreditBureauReportServices.Handlers;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 
 namespace Infrastructure.Services.CreditBureauReportServices;
@@ -12,6 +13,7 @@ public class CreditBureauReportService : ICreditBureauReportService
     private readonly CreditBureauProcessingManager _processingManager;
     private readonly IEnumerable<ICiHandler> _handlers;
     private readonly ILogger<CreditBureauReportService> _logger;
+    private readonly SemaphoreSlim _processingLock = new SemaphoreSlim(1, 1);
 
     public CreditBureauReportService(
         CreditBureauProcessingManager processingManager,
@@ -25,10 +27,41 @@ public class CreditBureauReportService : ICreditBureauReportService
 
     /// <summary>
     /// Обработка всех CI-запросов
+    /// Предотвращает параллельные итерации, которые могут привести к deadlock-у
     /// </summary>
     public async Task CreditBureauReportProcessing(CancellationToken cancellationToken)
     {
-        await _processingManager.ProcessAllAsync(cancellationToken);
+        if (!await _processingLock.WaitAsync(0, cancellationToken))
+        {
+            _logger.LogInformation("CreditBureauReportProcessing is already running, skipping iteration");
+            return;
+        }
+
+        try
+        {
+            await ProcessWithRetryAsync(cancellationToken);
+        }
+        finally
+        {
+            _processingLock.Release();
+        }
+    }
+
+    private async Task ProcessWithRetryAsync(CancellationToken cancellationToken, int attemptNumber = 1, int maxAttempts = 3)
+    {
+        try
+        {
+            await _processingManager.ProcessAllAsync(cancellationToken);
+        }
+        catch (SqlException ex) when (ex.Number == 1205 && attemptNumber < maxAttempts)
+        {
+            var delayMs = (int)Math.Pow(2, attemptNumber) * 1000;
+            _logger.LogWarning(ex, "Deadlock detected in CreditBureauReportProcessing (attempt {AttemptNumber}/{MaxAttempts}), retrying after {DelayMs}ms",
+                attemptNumber, maxAttempts, delayMs);
+
+            await Task.Delay(delayMs, cancellationToken);
+            await ProcessWithRetryAsync(cancellationToken, attemptNumber + 1, maxAttempts);
+        }
     }
 
     /// <summary>
