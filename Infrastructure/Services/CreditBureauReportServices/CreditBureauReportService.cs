@@ -15,6 +15,10 @@ public class CreditBureauReportService : ICreditBureauReportService
     private readonly ILogger<CreditBureauReportService> _logger;
     private readonly SemaphoreSlim _processingLock = new SemaphoreSlim(1, 1);
 
+    private readonly SemaphoreSlim _ci015Lock = new SemaphoreSlim(1, 1);
+    private readonly SemaphoreSlim _ci016Lock = new SemaphoreSlim(1, 1);
+    private readonly SemaphoreSlim _ci018Lock = new SemaphoreSlim(1, 1);
+
     public CreditBureauReportService(
         CreditBureauProcessingManager processingManager,
         IEnumerable<ICiHandler> handlers,
@@ -86,6 +90,7 @@ public class CreditBureauReportService : ICreditBureauReportService
 
     /// <summary>
     /// Отправка отчета CI-015 (Сведения об остатках на счетах) за указанный период
+    /// Синхронизирована чтобы избежать deadlock-а с worker-ом
     /// </summary>
     /// <param name="startDate">Дата начала периода</param>
     /// <param name="endDate">Дата окончания периода</param>
@@ -100,12 +105,21 @@ public class CreditBureauReportService : ICreditBureauReportService
             return new CiProcessingResult();
         }
 
-        _logger.LogInformation("Sending CI-015 for period {StartDate} - {EndDate}, LoanKey: {LoanKey}", startDate.ToString("yyyy-MM-dd"), endDate.ToString("yyyy-MM-dd"), loanKey);
-        return await handler.SendByPeriodAsync(startDate, endDate, loanKey, cancellationToken);
+        await _ci015Lock.WaitAsync(cancellationToken);
+        try
+        {
+            _logger.LogInformation("Sending CI-015 for period {StartDate} - {EndDate}, LoanKey: {LoanKey}", startDate.ToString("yyyy-MM-dd"), endDate.ToString("yyyy-MM-dd"), loanKey);
+            return await handler.SendByPeriodAsync(startDate, endDate, loanKey, cancellationToken);
+        }
+        finally
+        {
+            _ci015Lock.Release();
+        }
     }
 
     /// <summary>
     /// Отправка отчета CI-016 (Сведения о платежных документах) за указанный период
+    /// Синхронизирована чтобы избежать deadlock-а с worker-ом
     /// </summary>
     /// <param name="startDate">Дата начала периода</param>
     /// <param name="endDate">Дата окончания периода</param>
@@ -120,12 +134,21 @@ public class CreditBureauReportService : ICreditBureauReportService
             return new CiProcessingResult();
         }
 
-        _logger.LogInformation("Sending CI-016 for period {StartDate} - {EndDate}, LoanKey: {LoanKey}", startDate.ToString("yyyy-MM-dd"), endDate.ToString("yyyy-MM-dd"), loanKey);
-        return await handler.SendByPeriodAsync(startDate, endDate, loanKey, cancellationToken);
+        await _ci016Lock.WaitAsync(cancellationToken);
+        try
+        {
+            _logger.LogInformation("Sending CI-016 for period {StartDate} - {EndDate}, LoanKey: {LoanKey}", startDate.ToString("yyyy-MM-dd"), endDate.ToString("yyyy-MM-dd"), loanKey);
+            return await handler.SendByPeriodAsync(startDate, endDate, loanKey, cancellationToken);
+        }
+        finally
+        {
+            _ci016Lock.Release();
+        }
     }
 
     /// <summary>
     /// Отправка отчета CI-018 (Сведения о статусе счетов) за указанный период
+    /// Синхронизирована чтобы избежать deadlock-а с worker-ом
     /// </summary>
     /// <param name="startDate">Дата начала периода</param>
     /// <param name="endDate">Дата окончания периода</param>
@@ -140,7 +163,15 @@ public class CreditBureauReportService : ICreditBureauReportService
             return new CiProcessingResult();
         }
 
-        _logger.LogInformation("Sending CI-018 for period {StartDate} - {EndDate}, LoanKey: {LoanKey}", startDate.ToString("yyyy-MM-dd"), endDate.ToString("yyyy-MM-dd"), loanKey);
-        return await handler.SendByPeriodAsync(startDate, endDate, loanKey, cancellationToken);
+        await _ci018Lock.WaitAsync(cancellationToken);
+        try
+        {
+            _logger.LogInformation("Sending CI-018 for period {StartDate} - {EndDate}, LoanKey: {LoanKey}", startDate.ToString("yyyy-MM-dd"), endDate.ToString("yyyy-MM-dd"), loanKey);
+            return await handler.SendByPeriodAsync(startDate, endDate, loanKey, cancellationToken);
+        }
+        finally
+        {
+            _ci018Lock.Release();
+        }
     }
 }
