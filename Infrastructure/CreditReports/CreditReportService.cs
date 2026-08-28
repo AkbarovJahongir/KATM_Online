@@ -40,6 +40,18 @@ namespace Infrastructure.CreditReports
         public async Task CreditReport(LoanApplication loanApplications, CancellationToken cancellationToken)
         {
             var loanKey = int.Parse(loanApplications.KeyCreditBureauKb);
+
+            var isIndividual = loanApplications.ApplicationsSubjectType == "0";
+            var prerequisiteStatus = isIndividual
+                ? await _creditBureauReportRepository.GetCreditBureau001StatusAsync(loanKey, cancellationToken)
+                : await _creditBureauReportRepository.GetCreditBureau002StatusAsync(loanKey, cancellationToken);
+
+            if (prerequisiteStatus != 1)
+            {
+                await _creditBureauReportRepository.UpdateRequestHistoryStatusAsync(loanKey, "09", cancellationToken);
+                return;
+            }
+
             var ci017State = await _creditBureauReportRepository.GetCi017StateAsync(loanKey, cancellationToken);
             if (ci017State.AttemptCount >= MaxCi017Attempts)
             {
