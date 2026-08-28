@@ -943,15 +943,31 @@ public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : I
 
     public async Task UpdateRequestHistoryStatusAsync(int loanKey, string status, CancellationToken cancellationToken)
     {
-        using var connection = new SqlConnection(_databaseSettings.CIBConnection);
-        using var command = new SqlCommand(
+        using (var connection = new SqlConnection(_databaseSettings.CIBConnection))
+        using (var command = new SqlCommand(
             "UPDATE [dbo].[Request_History] SET [status] = @status WHERE [Key_ABS_Loan] = @loanKey",
-            connection);
-        command.Parameters.AddWithValue("@loanKey", loanKey);
-        command.Parameters.AddWithValue("@status", status);
-        await connection.OpenAsync(cancellationToken);
-        await command.ExecuteNonQueryAsync(cancellationToken);
-        await connection.CloseAsync();
+            connection))
+        {
+            command.Parameters.AddWithValue("@loanKey", loanKey);
+            command.Parameters.AddWithValue("@status", status);
+            await connection.OpenAsync(cancellationToken);
+            await command.ExecuteNonQueryAsync(cancellationToken);
+            await connection.CloseAsync();
+        }
+
+        // Loan_History_KB (Ehtirom) is the source table GetLoanApplications() reads from -
+        // without this, a loan stuck at "09" in Request_History keeps being re-selected as if still "00".
+        using (var connection = new SqlConnection(_databaseSettings.DBConnection))
+        using (var command = new SqlCommand(
+            "UPDATE [dbo].[Loan_History_KB] SET [status] = @status WHERE [key] = @loanKey",
+            connection))
+        {
+            command.Parameters.AddWithValue("@loanKey", loanKey);
+            command.Parameters.AddWithValue("@status", status);
+            await connection.OpenAsync(cancellationToken);
+            await command.ExecuteNonQueryAsync(cancellationToken);
+            await connection.CloseAsync();
+        }
     }
 
     public async Task InsertCi017RequestLogAsync(

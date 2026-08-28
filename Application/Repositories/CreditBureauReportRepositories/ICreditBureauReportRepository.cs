@@ -230,8 +230,12 @@ public interface ICreditBureauReportRepository
     Task ResetCi017AttemptAsync(int loanKey, string? newStatus, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Обновить бизнес-статус заявки в [dbo].[Request_History] (Key_ABS_Loan = loanKey).
-    /// Используется, например, чтобы выставить статус "09" после исчерпания попыток CI-017.
+    /// Обновить бизнес-статус заявки в [dbo].[Request_History] (Key_ABS_Loan = loanKey, база CIB)
+    /// и в [dbo].[Loan_History_KB] (key = loanKey, база Ehtirom) — это исходная таблица,
+    /// из которой GetLoanApplications() выбирает займы, поэтому без обновления и там
+    /// займ продолжал бы выбираться как будто статус всё ещё "00".
+    /// Используется, например, чтобы выставить статус "09" после исчерпания попыток
+    /// CI-017 или когда CI-001/CI-002 ещё не подтверждены.
     /// </summary>
     Task UpdateRequestHistoryStatusAsync(int loanKey, string status, CancellationToken cancellationToken);
 
