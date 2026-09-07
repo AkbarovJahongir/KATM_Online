@@ -43,8 +43,6 @@ public class CreditReportServiceTests
         var security = new RequestSecurity { pLogin = "login", pPassword = "password" };
         var logWriter = new LogWriter(Path.GetTempPath(), false);
 
-        repository.Setup(r => r.ResetCi017AttemptAsync(It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
         repository.Setup(r => r.IncrementCi017AttemptAsync(It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         repository.Setup(r => r.UpsertCiStatusAsync(
@@ -94,7 +92,6 @@ public class CreditReportServiceTests
 
         await sut.CreditReport(application, CancellationToken.None);
 
-        repository.Verify(r => r.ResetCi017AttemptAsync(It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
         requestManager.Verify(r => r.SendPostRequest(
             It.IsAny<string>(), It.IsAny<string>(), "42", IRequestManagerRepository.IsXml.NotXml, It.IsAny<CancellationToken>()), Times.Never);
         repository.Verify(r => r.UpsertCiStatusAsync(42, 17, 2, "Max attempts (3) reached", null, It.IsAny<CancellationToken>()), Times.Once);
@@ -127,10 +124,43 @@ public class CreditReportServiceTests
 
         await sut.CreditReport(application, CancellationToken.None);
 
-        repository.Verify(r => r.ResetCi017AttemptAsync(It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
         requestManager.Verify(r => r.SendPostRequest(
             It.IsAny<string>(), It.IsAny<string>(), "43", IRequestManagerRepository.IsXml.NotXml, It.IsAny<CancellationToken>()), Times.Exactly(2));
         repository.Verify(r => r.IncrementCi017AttemptAsync(43, "02", It.IsAny<CancellationToken>()), Times.Exactly(2));
+    }
+
+    [Fact]
+    public async Task CreditReport_When05050ReturnsToken_SetsPTokenBeforeImmediateStatusCheck()
+    {
+        var (sut, requestManager, _, _, repository, _, _) = CreateSut();
+        var application = new LoanApplication
+        {
+            KeyCreditBureauKb = "55",
+            PClaimId = "claim-55",
+            Status = "00",
+            PToken = null,
+            ApplicationsSubjectType = "0"
+        };
+
+        repository.Setup(r => r.GetCreditBureau001StatusAsync(55, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((byte?)1);
+        var ci017States = new Queue<Ci017State>(new[]
+        {
+            new Ci017State(AttemptCount: 0, LastStatus: "00", LastAttemptAt: null),
+            new Ci017State(AttemptCount: 1, LastStatus: "00", LastAttemptAt: DateTime.UtcNow)
+        });
+        repository.Setup(r => r.GetCi017StateAsync(55, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => ci017States.Dequeue());
+        requestManager.SetupSequence(r => r.SendPostRequest(
+                It.IsAny<string>(), It.IsAny<string>(), "55", IRequestManagerRepository.IsXml.NotXml, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(WaitAndTryAgainResponse)
+            .ReturnsAsync(WaitAndTryAgainResponse);
+
+        await sut.CreditReport(application, CancellationToken.None);
+
+        Assert.Equal("tok-123", application.PToken);
+        requestManager.Verify(r => r.SendPostRequest(
+            It.IsAny<string>(), It.IsAny<string>(), "55", IRequestManagerRepository.IsXml.NotXml, It.IsAny<CancellationToken>()), Times.Exactly(2));
     }
 
     [Fact]

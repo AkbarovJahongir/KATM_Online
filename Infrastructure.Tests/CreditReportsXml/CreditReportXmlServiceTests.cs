@@ -45,8 +45,6 @@ public class CreditReportXmlServiceTests
         var security = new RequestSecurity { pLogin = "login", pPassword = "password" };
         var logWriter = new LogWriter(Path.GetTempPath(), false);
 
-        repository.Setup(r => r.ResetCi017AttemptAsync(It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
         repository.Setup(r => r.IncrementCi017AttemptAsync(It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         repository.Setup(r => r.UpsertCiStatusAsync(
@@ -104,7 +102,6 @@ public class CreditReportXmlServiceTests
 
         await sut.CreditReportXml(application, CancellationToken.None);
 
-        repository.Verify(r => r.ResetCi017AttemptAsync(It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
         requestManager.Verify(r => r.SendPostRequest(
             It.IsAny<string>(), It.IsAny<string>(), "42", IRequestManagerRepository.IsXml.Xml, It.IsAny<CancellationToken>()), Times.Never);
         repository.Verify(r => r.UpsertCiStatusAsync(42, 17, 2, "Max attempts (3) reached", null, It.IsAny<CancellationToken>()), Times.Once);
@@ -126,7 +123,6 @@ public class CreditReportXmlServiceTests
 
         await sut.CreditReportXml(application, CancellationToken.None);
 
-        repository.Verify(r => r.ResetCi017AttemptAsync(It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
         requestManager.Verify(r => r.SendPostRequest(
             It.IsAny<string>(), It.IsAny<string>(), "43", IRequestManagerRepository.IsXml.Xml, It.IsAny<CancellationToken>()), Times.Exactly(2));
         repository.Verify(r => r.IncrementCi017AttemptAsync(43, "02", It.IsAny<CancellationToken>()), Times.Exactly(2));

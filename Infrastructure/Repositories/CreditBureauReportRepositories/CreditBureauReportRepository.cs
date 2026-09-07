@@ -1,10 +1,11 @@
+using Application.Repositories.CreditBureauReportRepositories;
 using CreditBureauService.Contracts.CreditBureauApplications.CreditRegistration.CreditAgreementsAndLeasing.Requests;
 using CreditBureauService.Contracts.CreditBureauApplications.CreditRegistration.CreditApplications;
 using Domain.Common.DbContext;
 using Microsoft.Data.SqlClient;
 using System.Data;
 
-namespace Application.Repositories.CreditBureauReportRepositories;
+namespace Infrastructure.Repositories.CreditBureauReportRepositories;
 
 public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : ICreditBureauReportRepository
 {
@@ -926,19 +927,6 @@ public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : I
         var lastAttemptAt = reader["LastCi017AttemptAt"] is DBNull ? (DateTime?)null : Convert.ToDateTime(reader["LastCi017AttemptAt"]);
 
         return new Ci017State(attemptCount, lastStatus, lastAttemptAt);
-    }
-
-    public async Task ResetCi017AttemptAsync(int loanKey, string? newStatus, CancellationToken cancellationToken)
-    {
-        using var connection = new SqlConnection(_databaseSettings.CIBConnection);
-        using var command = new SqlCommand(
-            "UPDATE [dbo].[Katm_Methods_Request] SET ci017Attempt = 0, LastStatus = @newStatus, LastCi017AttemptAt = NULL WHERE [loanKey] = @loanKey",
-            connection);
-        command.Parameters.AddWithValue("@loanKey", loanKey);
-        command.Parameters.AddWithValue("@newStatus", (object?)newStatus ?? DBNull.Value);
-        await connection.OpenAsync(cancellationToken);
-        await command.ExecuteNonQueryAsync(cancellationToken);
-        await connection.CloseAsync();
     }
 
     public async Task UpdateRequestHistoryStatusAsync(int loanKey, string status, CancellationToken cancellationToken)

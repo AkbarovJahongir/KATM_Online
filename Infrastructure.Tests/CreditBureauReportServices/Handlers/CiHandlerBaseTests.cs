@@ -43,6 +43,9 @@ internal sealed class TestCiHandler(
             "https://bureau.test/ci-999",
             "TestCiHandler.txt",
             cancellationToken: cancellationToken);
+
+    public static string FormatIsoStartOfDay(DateTimeOffset dateTime) =>
+        FormatKatmIsoDateAtStartOfDay(dateTime);
 }
 
 public class CiHandlerBaseTests
@@ -204,5 +207,14 @@ public class CiHandlerBaseTests
         repository.Verify(r => r.UpsertCiStatusAsync(6, 999, 2, It.IsAny<string?>(), null, It.IsAny<CancellationToken>()), Times.Once);
         telegram.Verify(t => t.NotifyErrorAsync(
             "CI-999 processing exception", It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Theory]
+    [InlineData("2026-09-07T15:30:45.123+05:00", "2026-09-07T00:00:00.000+0500")]
+    [InlineData("2026-01-01T23:59:59.999+05:00", "2026-01-01T00:00:00.000+0500")]
+    public void FormatKatmIsoDateAtStartOfDay_ForcesMidnightWithFixedOffset(string input, string expected)
+    {
+        var dateTime = DateTimeOffset.Parse(input);
+        Assert.Equal(expected, TestCiHandler.FormatIsoStartOfDay(dateTime));
     }
 }

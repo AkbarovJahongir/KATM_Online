@@ -1,6 +1,8 @@
+using Application.Repositories.CreditBureauReportRepositories;
 using Infrastructure.CreditRegistration;
 using Infrastructure.CreditReports;
 using Infrastructure.CreditReportsXml;
+using Infrastructure.Repositories.CreditBureauReportRepositories;
 using Infrastructure.Services.CreditBureauServices;
 using Infrastructure.Services.CreditBureauXmlServices;
 using Infrastructure.Services.CreditBureauReportServices;
@@ -15,6 +17,11 @@ namespace Infrastructure
     {
         public static void AddInfrastructure(this IServiceCollection services)
         {
+            services.AddSingleton<ICreditBureauReportRepository, CreditBureauReportRepository>();
+            services.AddSingleton<ICiQueueReaderRepository>(sp => sp.GetRequiredService<ICreditBureauReportRepository>());
+            services.AddSingleton<ICiStatusStore>(sp => sp.GetRequiredService<ICreditBureauReportRepository>());
+            services.AddSingleton<ICi017StateStore>(sp => sp.GetRequiredService<ICreditBureauReportRepository>());
+
             services.AddSingleton<ICreditReportService, CreditReportService>();
             services.AddSingleton<ICreditRegistrationService, CreditRegistrationService>();
             services.AddSingleton<IRequestManagerService, RequestManagerService>();

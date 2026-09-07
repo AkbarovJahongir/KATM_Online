@@ -146,6 +146,9 @@ namespace Infrastructure.CreditReports
                         // сохраняем токен
                         await _helperRepository.KatmHelper(loanApplications.KeyCreditBureauKb, baseResponse.data.token, IHelperRepository.TypeOperation.Token, cancellationToken);
                         await _creditBureauReportRepository.UpsertCiStatusAsync(int.Parse(loanApplications.KeyCreditBureauKb), 17, 0, "Waiting", baseResponse.data.token, cancellationToken);
+                        // Assign token onto the in-memory loan so immediate status check can POST /credit/report/status
+                        // (mirrors CreditReportXmlService — without this, CreditReportStatus no-ops on empty PToken).
+                        loanApplications.PToken = baseResponse.data.token;
                         // Immediately check report status with received token (skip interval check on first attempt)
                         await CreditReportStatus(loanApplications, cancellationToken, skipIntervalCheck: true);
                         return;

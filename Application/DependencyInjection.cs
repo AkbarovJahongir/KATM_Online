@@ -1,7 +1,6 @@
 using Application.CreditRegistration;
 using Application.CreditReports;
 using Application.Repositories.CreditBureauRepositories;
-using Application.Repositories.CreditBureauReportRepositories;
 using Application.Repositories.CreditReportXmlParserRepositories;
 using Application.Repositories.Helpers;
 using Application.Repositories.RequestManager;
@@ -19,6 +18,5 @@ public static class DependencyInjection
         services.AddSingleton<IHelperRepository, HelperRepository>();
         services.AddSingleton<ICreditBureauRepository, CreditBureauRepository>();
         services.AddSingleton<ICreditReportXmlParserRepository, CreditReportXmlParserRepository>();
-        services.AddSingleton<ICreditBureauReportRepository, CreditBureauReportRepository>();
     }
 }
