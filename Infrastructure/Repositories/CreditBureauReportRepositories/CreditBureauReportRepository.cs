@@ -1,10 +1,11 @@
+using Application.Repositories.CreditBureauReportRepositories;
 using CreditBureauService.Contracts.CreditBureauApplications.CreditRegistration.CreditAgreementsAndLeasing.Requests;
 using CreditBureauService.Contracts.CreditBureauApplications.CreditRegistration.CreditApplications;
 using Domain.Common.DbContext;
 using Microsoft.Data.SqlClient;
 using System.Data;
 
-namespace Application.Repositories.CreditBureauReportRepositories;
+namespace Infrastructure.Repositories.CreditBureauReportRepositories;
 
 public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : ICreditBureauReportRepository
 {
@@ -893,55 +894,101 @@ public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : I
             PDate = GetString(reader, "pDate"),              // [ДатаОтправки]
         };
     }
-    public async Task<List<CreditReportQueueItem>>
-    GetCreditReportRequestsAsync(CancellationToken cancellationToken)
+    public async Task IncrementCi017AttemptAsync(int loanKey, string? currentStatus, CancellationToken cancellationToken)
     {
-        using var connection = new SqlConnection(_databaseSettings.DBConnection);
-        using var command = new SqlCommand("SELECT * FROM [dbo].[KATM_Report_017]()", connection);
+        using var connection = new SqlConnection(_databaseSettings.CIBConnection);
+        using var command = new SqlCommand(
+            "UPDATE [dbo].[Katm_Methods_Request] SET ci017Attempt = ISNULL(ci017Attempt, 0) + 1, LastStatus = @currentStatus, LastCi017AttemptAt = DATEADD(HOUR, 5, SYSUTCDATETIME()) WHERE [loanKey] = @loanKey",
+            connection);
+        command.Parameters.AddWithValue("@loanKey", loanKey);
+        command.Parameters.AddWithValue("@currentStatus", (object?)currentStatus ?? DBNull.Value);
         await connection.OpenAsync(cancellationToken);
-        using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        var result = new List<CreditReportQueueItem>();
-        while (await reader.ReadAsync(cancellationToken))
-        {
-            result.Add(new CreditReportQueueItem
-            {
-                LoanKey = GetInt(reader, "loanKey") ?? 0,
-                PClaimId = GetString(reader, "pClaimId"),              // [УникальныйIDЗаявки]
-                PReportId = GetString(reader, "pReportId"),             // [IDОтчёта]
-                PLoanSubject = GetString(reader, "pLoanSubject"),          // [ТипСубъекта] A18
-                PLoanSubjectType = GetString(reader, "pLoanSubjectType"),      // [ПодтипСубъекта] A18
-                PPin = GetString(reader, "pPin"),                  // [ПИНФЛ] для физлиц
-                PTin = GetString(reader, "pTin"),                  // [ИНН] для юрлиц
-                PReportFormat = GetInt(reader, "pReportFormat") ?? 0, // [ФорматОтчёта]
-                PReportReason = GetInt(reader, "pReportReason") ?? 1,         // [ЦельИзучения] v9.15
-                PToken = GetString(reader, "pToken"),                // [KATM-SIR] если есть
-            });
-        }
+        await command.ExecuteNonQueryAsync(cancellationToken);
         await connection.CloseAsync();
-        return result;
     }
 
-    public async Task<List<CreditReportQueueItem>>
-        GetCreditReportPollRequestsAsync(CancellationToken cancellationToken)
+    public async Task<Ci017State> GetCi017StateAsync(int loanKey, CancellationToken cancellationToken)
     {
-        using var connection = new SqlConnection(_databaseSettings.DBConnection);
-        using var command = new SqlCommand("SELECT * FROM [dbo].[KATM_Report_017_Poll]()", connection);
+        using var connection = new SqlConnection(_databaseSettings.CIBConnection);
+        using var command = new SqlCommand(
+            "SELECT ISNULL(ci017Attempt, 0) AS AttemptCount, LastStatus, LastCi017AttemptAt FROM [dbo].[Katm_Methods_Request] WHERE [loanKey] = @loanKey",
+            connection);
+        command.Parameters.AddWithValue("@loanKey", loanKey);
         await connection.OpenAsync(cancellationToken);
         using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        var result = new List<CreditReportQueueItem>();
-        while (await reader.ReadAsync(cancellationToken))
+
+        if (!await reader.ReadAsync(cancellationToken))
         {
-            result.Add(new CreditReportQueueItem
-            {
-                LoanKey = GetInt(reader, "loanKey") ?? 0,
-                PClaimId = GetString(reader, "pClaimId"),           // [УникальныйIDЗаявки]
-                PToken = GetString(reader, "pToken"),             // [ТокенДляОпроса] (05050)
-                PReportFormat = GetInt(reader, "pReportFormat") ?? 0, // [ФорматОтчёта]
-            });
+            return new Ci017State(0, null, null);
         }
-        await connection.CloseAsync();
-        return result;
+
+        var attemptCount = reader["AttemptCount"] is DBNull ? 0 : Convert.ToInt32(reader["AttemptCount"]);
+        var lastStatus = reader["LastStatus"] is DBNull ? null : reader["LastStatus"].ToString();
+        var lastAttemptAt = reader["LastCi017AttemptAt"] is DBNull ? (DateTime?)null : Convert.ToDateTime(reader["LastCi017AttemptAt"]);
+
+        return new Ci017State(attemptCount, lastStatus, lastAttemptAt);
     }
+
+    public async Task UpdateRequestHistoryStatusAsync(int loanKey, string status, CancellationToken cancellationToken)
+    {
+        using (var connection = new SqlConnection(_databaseSettings.CIBConnection))
+        using (var command = new SqlCommand(
+            "UPDATE [dbo].[Request_History] SET [status] = @status WHERE [Key_ABS_Loan] = @loanKey",
+            connection))
+        {
+            command.Parameters.AddWithValue("@loanKey", loanKey);
+            command.Parameters.AddWithValue("@status", status);
+            await connection.OpenAsync(cancellationToken);
+            await command.ExecuteNonQueryAsync(cancellationToken);
+            await connection.CloseAsync();
+        }
+
+        // Loan_History_KB (Ehtirom) is the source table GetLoanApplications() reads from -
+        // without this, a loan stuck at "09" in Request_History keeps being re-selected as if still "00".
+        using (var connection = new SqlConnection(_databaseSettings.DBConnection))
+        using (var command = new SqlCommand(
+            "UPDATE [dbo].[Loan_History_KB] SET [status] = @status WHERE [key] = @loanKey",
+            connection))
+        {
+            command.Parameters.AddWithValue("@loanKey", loanKey);
+            command.Parameters.AddWithValue("@status", status);
+            await connection.OpenAsync(cancellationToken);
+            await command.ExecuteNonQueryAsync(cancellationToken);
+            await connection.CloseAsync();
+        }
+    }
+
+    public async Task InsertCi017RequestLogAsync(
+        int loanKey,
+        string? claimId,
+        string requestType,
+        int attemptNumber,
+        string? requestBody,
+        string? responseBody,
+        DateTime dateRequest,
+        DateTime? dateResponse,
+        CancellationToken cancellationToken)
+    {
+        using var connection = new SqlConnection(_databaseSettings.CIBConnection);
+        using var command = new SqlCommand(
+            @"INSERT INTO [dbo].[Ci017RequestLog]
+                (LoanKey, ClaimId, RequestType, AttemptNumber, RequestBody, ResponseBody, DateRequest, DateResponse)
+              VALUES
+                (@LoanKey, @ClaimId, @RequestType, @AttemptNumber, @RequestBody, @ResponseBody, @DateRequest, @DateResponse)",
+            connection);
+        command.Parameters.AddWithValue("@LoanKey", loanKey);
+        command.Parameters.AddWithValue("@ClaimId", (object?)claimId ?? DBNull.Value);
+        command.Parameters.AddWithValue("@RequestType", requestType);
+        command.Parameters.AddWithValue("@AttemptNumber", attemptNumber);
+        command.Parameters.AddWithValue("@RequestBody", (object?)requestBody ?? DBNull.Value);
+        command.Parameters.AddWithValue("@ResponseBody", (object?)responseBody ?? DBNull.Value);
+        command.Parameters.AddWithValue("@DateRequest", dateRequest);
+        command.Parameters.AddWithValue("@DateResponse", (object?)dateResponse ?? DBNull.Value);
+        await connection.OpenAsync(cancellationToken);
+        await command.ExecuteNonQueryAsync(cancellationToken);
+        await connection.CloseAsync();
+    }
+
     public async Task UpsertCiStatusAsync(
         int loanKey,
         int ciCode,
@@ -988,6 +1035,36 @@ public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : I
         var result = await command.ExecuteScalarAsync(cancellationToken);
         await connection.CloseAsync();
         return result == DBNull.Value ? null : Convert.ToByte(result);
+    }
+
+    public async Task<(string? App, string? CustomerId)> GetLoanAppAndCustomerIdAsync(string loanKey, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(loanKey))
+        {
+            return (null, null);
+        }
+
+        using var connection = new SqlConnection(_databaseSettings.DBConnection);
+        using var command = new SqlCommand(
+            "SELECT TOP 1 App, Customer_ID FROM dbo.Loan WITH(NOLOCK) WHERE [key] = @LoanKey",
+            connection);
+
+        command.Parameters.Add("@LoanKey", SqlDbType.NVarChar, 64).Value = loanKey.Trim();
+
+        await connection.OpenAsync(cancellationToken);
+        using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
+        string? app = null;
+        string? customerId = null;
+
+        if (await reader.ReadAsync(cancellationToken))
+        {
+            app = reader["App"] is DBNull ? null : reader["App"].ToString();
+            customerId = reader["Customer_ID"] is DBNull ? null : reader["Customer_ID"].ToString();
+        }
+
+        await connection.CloseAsync();
+        return (app, customerId);
     }
 
     private async Task<List<CreditBureauReportQueueItem<T>>> ExecuteTableFunctionAsync<T>(

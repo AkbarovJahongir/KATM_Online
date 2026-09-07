@@ -41,7 +41,10 @@ public sealed class CreditReportXmlParserRepository(DatabaseSettings databaseSet
     {
         await using var connect = new SqlConnection(_databaseSettings.DBConnection);
         await using var cmd = new SqlCommand(
-            @"SELECT TOP (1) App as App FROM dbo.Loan_History_KB WITH(NOLOCK) WHERE [key] = @KeyLoanHistory",
+            @"SELECT TOP (1) l.App
+              FROM CIB.dbo.Request_History rh WITH(NOLOCK)
+              JOIN dbo.Loan l WITH(NOLOCK) ON l.[key] = rh.Key_Abs_Loan
+              WHERE rh.[Key] = @KeyLoanHistory",
             connect);
 
         cmd.CommandType = CommandType.Text;

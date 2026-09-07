@@ -14,9 +14,9 @@
         {
             if (_working)
             {
-                string filePath = _exePath + fileName;
                 try
                 {
+                    string filePath = GetDailyFilePath(fileName);
                     using StreamWriter sw = File.AppendText(filePath);
                     sw.Write("Log Entry: ");
                     sw.WriteLine("[" + DateTime.Now.ToString() + "] \n" + text);
@@ -29,17 +29,27 @@
         }
         public void EmergencyLog(string fileName, string text)
         {
-            string filePath = _exePath + fileName;
-            try
+            if (_working)
             {
-                using StreamWriter sw = File.AppendText(filePath);
-                sw.Write("Log Entry: ");
-                sw.WriteLine("[" + DateTime.Now.ToString() + "] \n" + text);
-                sw.WriteLine("----------------------------------------------");
+                try
+                {
+                    string filePath = GetDailyFilePath(fileName);
+                    using StreamWriter sw = File.AppendText(filePath);
+                    sw.Write("Log Entry: ");
+                    sw.WriteLine("[" + DateTime.Now.ToString() + "] \n" + text);
+                    sw.WriteLine("----------------------------------------------");
+                }
+                catch
+                {
+                }
             }
-            catch
-            {
-            }
+        }
+
+        private string GetDailyFilePath(string fileName)
+        {
+            string folderPath = Path.Combine(_exePath, "logs", DateTime.Now.ToString("yyyy-MM-dd"));
+            Directory.CreateDirectory(folderPath);
+            return Path.Combine(folderPath, fileName);
         }
     }
 }

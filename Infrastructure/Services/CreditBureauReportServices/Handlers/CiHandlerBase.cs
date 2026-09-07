@@ -63,7 +63,7 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
     /// </summary>
     protected async Task<CiProcessingResult> ProcessCiRequestsAsync(
         Func<CancellationToken, Task<List<CreditBureauReportQueueItem<TRequest>>>> getRequestsFunc,
-        Func<TRequest, BaseRequest<TRequest>> prepareRequestFunc,
+        Func<TRequest, object> prepareRequestFunc,
         string endpoint,
         string logFileName,
         Action<TRequest>? beforeRequestAction = null,
@@ -81,9 +81,16 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
             if (item.Request is null)
             {
                 result.Error++;
+                var nullMessage = $"CI-{CiCode:D3} request is null";
+                result.AddDetail(item.LoanKey, false, nullMessage);
                 Logger.LogWarning("CI-{CiCode} skipped due to null request. LoanKey={LoanKey}", CiCode, item.LoanKey);
+                await NotifyErrorAsync(
+                    $"CI-{CiCode:D3} null request",
+                    item.LoanKey,
+                    "Request data is null",
+                    cancellationToken);
                 await CreditBureauReportRepository.UpsertCiStatusAsync(
-                    item.LoanKey, CiCode, 2, $"CI-{CiCode:D3} request is null", null, cancellationToken);
+                    item.LoanKey, CiCode, 2, nullMessage, null, cancellationToken);
                 continue;
             }
 
@@ -93,15 +100,19 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
 
                 var baseRequest = prepareRequestFunc(item.Request);
                 _currentRequestJson = baseRequest.ToJSON();
+                LogFullRequest(item.LoanKey, _currentRequestJson);
                 var response = await RequestManagerService.SendPostRequest(
                     endpoint,
                     _currentRequestJson,
                     item.LoanKey,
                     cancellationToken);
+                LogFullResponse(item.LoanKey, response);
 
                 if (string.IsNullOrWhiteSpace(response))
                 {
                     result.Error++;
+                    var emptyMessage = $"CI-{CiCode:D3} returned empty response";
+                    result.AddDetail(item.LoanKey, false, emptyMessage);
                     Logger.LogError("CI-{CiCode} empty response. LoanKey={LoanKey}", CiCode, item.LoanKey);
                     await NotifyErrorAsync(
                         $"CI-{CiCode:D3} empty response",
@@ -109,7 +120,7 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
                         "API returned empty response",
                         cancellationToken);
                     await CreditBureauReportRepository.UpsertCiStatusAsync(
-                        item.LoanKey, CiCode, 2, $"CI-{CiCode:D3} returned empty response", null, cancellationToken);
+                        item.LoanKey, CiCode, 2, emptyMessage, null, cancellationToken);
                     continue;
                 }
 
@@ -120,10 +131,12 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
                 if (isSuccess)
                 {
                     result.Success++;
+                    result.AddDetail(item.LoanKey, true, message, response);
                 }
                 else
                 {
                     result.Error++;
+                    result.AddDetail(item.LoanKey, false, message, response);
                 }
 
                 await CreditBureauReportRepository.UpsertCiStatusAsync(
@@ -132,6 +145,8 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
             catch (Exception ex)
             {
                 result.Error++;
+                var errorMessage = $"CI-{CiCode:D3} processing error: {ex.Message}";
+                result.AddDetail(item.LoanKey, false, errorMessage);
                 Logger.LogError(ex, "CI-{CiCode} error processing LoanKey={LoanKey}. Error={Error}", CiCode,
                     item.LoanKey, ex.Message);
                 await NotifyErrorAsync(
@@ -140,7 +155,7 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
                     $"Message: {ex.Message}\nStackTrace: {ex.StackTrace}",
                     cancellationToken);
                 await CreditBureauReportRepository.UpsertCiStatusAsync(
-                    item.LoanKey, CiCode, 2, $"CI-{CiCode:D3} processing error: {ex.Message}", null, cancellationToken);
+                    item.LoanKey, CiCode, 2, errorMessage, null, cancellationToken);
             }
             finally
             {
@@ -251,22 +266,38 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
         }
     }
 
-    protected Task NotifyErrorAsync(string source, int loanKey, string details,
+    /// <summary>
+    /// Полное логирование запроса CI в отдельный файл по фиче (CI{CiCode:D3}Full.txt)
+    /// </summary>
+    protected void LogFullRequest(int loanKey, string requestJson) =>
+        LogWriter.Log($"CI{CiCode:D3}Full.txt", $"Type: CI-{CiCode:D3} Request\nLoanKey: {loanKey}\n{requestJson.RedactSecurity()}");
+
+    /// <summary>
+    /// Полное логирование ответа CI в отдельный файл по фиче (CI{CiCode:D3}Full.txt)
+    /// </summary>
+    protected void LogFullResponse(int loanKey, string response) =>
+        LogWriter.Log($"CI{CiCode:D3}Full.txt", $"Type: CI-{CiCode:D3} Response\nLoanKey: {loanKey}\n{response}");
+
+    protected async Task NotifyErrorAsync(string source, int loanKey, string details,
         CancellationToken cancellationToken = default)
     {
         if (TelegramNotificationService is null)
         {
             Logger.LogWarning("CI-{CiCode} TelegramNotificationService is null, skipping notification", CiCode);
-            return Task.CompletedTask;
+            return;
         }
 
         var requestInfo = _currentRequestJson is not null
-            ? $"\nRequest: {GetResponsePreview(_currentRequestJson, 1500)}"
+            ? $"\nRequest: {GetResponsePreview(_currentRequestJson.RedactSecurity(), 1500)}"
             : string.Empty;
 
-        return TelegramNotificationService.NotifyErrorAsync(
+        var (app, customerId) = await CreditBureauReportRepository.GetLoanAppAndCustomerIdAsync(loanKey.ToString(), cancellationToken);
+
+        await TelegramNotificationService.NotifyErrorAsync(
             source,
             $"LoanKey: {loanKey}\nDetails: {details}{requestInfo}",
+            app,
+            customerId,
             cancellationToken);
     }
 
@@ -278,7 +309,7 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
 
     protected static string FormatKatmIsoDateAtStartOfDay(DateTimeOffset dateTime)
     {
-        return dateTime.ToString("yyyy-MM-ddTHH:mm:ss.fff+0500");
+        return dateTime.Date.ToString("yyyy-MM-ddT00:00:00.000+0500");
     }
 
     /// <summary>
