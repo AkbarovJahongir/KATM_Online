@@ -112,6 +112,7 @@ public class CreditReportXmlServiceTests
     {
         // The CI-017 attempt counter is never reset on a status change - the request
         // may be sent at most MaxCi017Attempts times per loan, regardless of status.
+        // On 05050 we only save the token; status is polled later after CheckReportStatusInterval.
         var (sut, requestManager, _, _, repository, _, _) = CreateSut();
         var application = new LoanApplication { KeyCreditBureauKb = "43", PClaimId = "claim-43", Status = "02" };
 
@@ -124,8 +125,8 @@ public class CreditReportXmlServiceTests
         await sut.CreditReportXml(application, CancellationToken.None);
 
         requestManager.Verify(r => r.SendPostRequest(
-            It.IsAny<string>(), It.IsAny<string>(), "43", IRequestManagerRepository.IsXml.Xml, It.IsAny<CancellationToken>()), Times.Exactly(2));
-        repository.Verify(r => r.IncrementCi017AttemptAsync(43, "02", It.IsAny<CancellationToken>()), Times.Exactly(2));
+            It.IsAny<string>(), It.IsAny<string>(), "43", IRequestManagerRepository.IsXml.Xml, It.IsAny<CancellationToken>()), Times.Once);
+        repository.Verify(r => r.IncrementCi017AttemptAsync(43, "02", It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -151,9 +152,6 @@ public class CreditReportXmlServiceTests
     [Fact]
     public async Task CreditReportXml_WhenAttemptsBelowNewLimitOfThree_StillCallsBureau()
     {
-        // Receiving 05050 with a token now triggers an immediate CreditReportStatusXml()
-        // check, so the bureau is called twice: once for /credit/report and once for
-        // /credit/report/status.
         var (sut, requestManager, _, _, repository, _, _) = CreateSut();
         var application = new LoanApplication { KeyCreditBureauKb = "9", PClaimId = "claim-9", Status = "02" };
 
@@ -166,7 +164,7 @@ public class CreditReportXmlServiceTests
         await sut.CreditReportXml(application, CancellationToken.None);
 
         requestManager.Verify(r => r.SendPostRequest(
-            It.IsAny<string>(), It.IsAny<string>(), "9", IRequestManagerRepository.IsXml.Xml, It.IsAny<CancellationToken>()), Times.Exactly(2));
+            It.IsAny<string>(), It.IsAny<string>(), "9", IRequestManagerRepository.IsXml.Xml, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -186,28 +184,23 @@ public class CreditReportXmlServiceTests
     }
 
     [Fact]
-    public async Task CreditReportXml_WhenReceives05050WithToken_ImmediatelyChecksStatus()
+    public async Task CreditReportXml_WhenReceives05050WithToken_SavesTokenAndDoesNotCallStatusImmediately()
     {
         var (sut, requestManager, _, _, repository, _, _) = CreateSut();
         var application = new LoanApplication { KeyCreditBureauKb = "44", PClaimId = "claim-44", Status = "02" };
 
         repository.Setup(r => r.GetCi017StateAsync(44, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Ci017State(AttemptCount: 0, LastStatus: "02", LastAttemptAt: null));
-
-        var callSequence = 0;
         requestManager.Setup(r => r.SendPostRequest(
                 It.IsAny<string>(), It.IsAny<string>(), "44", IRequestManagerRepository.IsXml.Xml, It.IsAny<CancellationToken>()))
-            .Returns(() =>
-            {
-                callSequence++;
-                return Task.FromResult(callSequence == 1 ? WaitAndTryAgainResponse : SuccessResponse);
-            });
+            .ReturnsAsync(WaitAndTryAgainResponse);
 
         await sut.CreditReportXml(application, CancellationToken.None);
 
+        Assert.Equal("tok-123", application.PToken);
+        repository.Verify(r => r.UpsertCiStatusAsync(44, 17, 0, "Waiting", "tok-123", It.IsAny<CancellationToken>()), Times.Once);
         requestManager.Verify(r => r.SendPostRequest(
-            It.IsAny<string>(), It.IsAny<string>(), "44", IRequestManagerRepository.IsXml.Xml, It.IsAny<CancellationToken>()), Times.Exactly(2));
-        repository.Verify(r => r.UpsertCiStatusAsync(44, 17, 1, "Success", null, It.IsAny<CancellationToken>()), Times.Once);
+            It.IsAny<string>(), It.IsAny<string>(), "44", IRequestManagerRepository.IsXml.Xml, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

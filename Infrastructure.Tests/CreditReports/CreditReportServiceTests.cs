@@ -102,35 +102,27 @@ public class CreditReportServiceTests
     {
         // The CI-017 attempt counter is never reset on a status change - the request
         // may be sent at most MaxCi017Attempts times per loan, regardless of status.
-        // Receiving 05050 with a token now triggers an immediate CreditReportStatus()
-        // check, so the bureau is called twice: once for /credit/report and once for
-        // /credit/report/status.
+        // On 05050 we only save the token; status is polled later after CheckReportStatusInterval.
         var (sut, requestManager, _, _, repository, _, _) = CreateSut();
         var application = new LoanApplication { KeyCreditBureauKb = "43", PClaimId = "claim-43", Status = "02", PToken = "tok-123", ApplicationsSubjectType = "0" };
 
         repository.Setup(r => r.GetCreditBureau001StatusAsync(43, It.IsAny<CancellationToken>()))
             .ReturnsAsync((byte?)1);
-        var ci017States = new Queue<Ci017State>(new[]
-        {
-            new Ci017State(AttemptCount: 1, LastStatus: "01", LastAttemptAt: null),
-            new Ci017State(AttemptCount: 2, LastStatus: "02", LastAttemptAt: DateTime.UtcNow)
-        });
         repository.Setup(r => r.GetCi017StateAsync(43, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(() => ci017States.Dequeue());
-        requestManager.SetupSequence(r => r.SendPostRequest(
+            .ReturnsAsync(new Ci017State(AttemptCount: 1, LastStatus: "01", LastAttemptAt: null));
+        requestManager.Setup(r => r.SendPostRequest(
                 It.IsAny<string>(), It.IsAny<string>(), "43", IRequestManagerRepository.IsXml.NotXml, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(WaitAndTryAgainResponse)  // First call: /credit/report
-            .ReturnsAsync(WaitAndTryAgainResponse); // Second call: /credit/report/status (still waiting)
+            .ReturnsAsync(WaitAndTryAgainResponse);
 
         await sut.CreditReport(application, CancellationToken.None);
 
         requestManager.Verify(r => r.SendPostRequest(
-            It.IsAny<string>(), It.IsAny<string>(), "43", IRequestManagerRepository.IsXml.NotXml, It.IsAny<CancellationToken>()), Times.Exactly(2));
-        repository.Verify(r => r.IncrementCi017AttemptAsync(43, "02", It.IsAny<CancellationToken>()), Times.Exactly(2));
+            It.IsAny<string>(), It.IsAny<string>(), "43", IRequestManagerRepository.IsXml.NotXml, It.IsAny<CancellationToken>()), Times.Once);
+        repository.Verify(r => r.IncrementCi017AttemptAsync(43, "02", It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
-    public async Task CreditReport_When05050ReturnsToken_SetsPTokenBeforeImmediateStatusCheck()
+    public async Task CreditReport_When05050ReturnsToken_SavesTokenAndDoesNotCallStatusImmediately()
     {
         var (sut, requestManager, _, _, repository, _, _) = CreateSut();
         var application = new LoanApplication
@@ -144,23 +136,18 @@ public class CreditReportServiceTests
 
         repository.Setup(r => r.GetCreditBureau001StatusAsync(55, It.IsAny<CancellationToken>()))
             .ReturnsAsync((byte?)1);
-        var ci017States = new Queue<Ci017State>(new[]
-        {
-            new Ci017State(AttemptCount: 0, LastStatus: "00", LastAttemptAt: null),
-            new Ci017State(AttemptCount: 1, LastStatus: "00", LastAttemptAt: DateTime.UtcNow)
-        });
         repository.Setup(r => r.GetCi017StateAsync(55, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(() => ci017States.Dequeue());
-        requestManager.SetupSequence(r => r.SendPostRequest(
+            .ReturnsAsync(new Ci017State(AttemptCount: 0, LastStatus: "00", LastAttemptAt: null));
+        requestManager.Setup(r => r.SendPostRequest(
                 It.IsAny<string>(), It.IsAny<string>(), "55", IRequestManagerRepository.IsXml.NotXml, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(WaitAndTryAgainResponse)
             .ReturnsAsync(WaitAndTryAgainResponse);
 
         await sut.CreditReport(application, CancellationToken.None);
 
         Assert.Equal("tok-123", application.PToken);
+        repository.Verify(r => r.UpsertCiStatusAsync(55, 17, 0, "Waiting", "tok-123", It.IsAny<CancellationToken>()), Times.Once);
         requestManager.Verify(r => r.SendPostRequest(
-            It.IsAny<string>(), It.IsAny<string>(), "55", IRequestManagerRepository.IsXml.NotXml, It.IsAny<CancellationToken>()), Times.Exactly(2));
+            It.IsAny<string>(), It.IsAny<string>(), "55", IRequestManagerRepository.IsXml.NotXml, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -188,31 +175,22 @@ public class CreditReportServiceTests
     [Fact]
     public async Task CreditReport_WhenAttemptsBelowNewLimitOfThree_StillCallsBureau()
     {
-        // Receiving 05050 with a token now triggers an immediate CreditReportStatus()
-        // check, so the bureau is called twice: once for /credit/report and once for
-        // /credit/report/status.
         var (sut, requestManager, _, _, repository, _, _) = CreateSut();
         var application = new LoanApplication { KeyCreditBureauKb = "9", PClaimId = "claim-9", Status = "02", PToken = "tok-123", ApplicationsSubjectType = "0" };
 
         repository.Setup(r => r.GetCreditBureau001StatusAsync(9, It.IsAny<CancellationToken>()))
             .ReturnsAsync((byte?)1);
-        var ci017States = new Queue<Ci017State>(new[]
-        {
-            new Ci017State(AttemptCount: 1, LastStatus: "02", LastAttemptAt: null),
-            new Ci017State(AttemptCount: 2, LastStatus: "02", LastAttemptAt: DateTime.UtcNow)
-        });
         repository.Setup(r => r.GetCi017StateAsync(9, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(() => ci017States.Dequeue());
-        requestManager.SetupSequence(r => r.SendPostRequest(
+            .ReturnsAsync(new Ci017State(AttemptCount: 1, LastStatus: "02", LastAttemptAt: null));
+        requestManager.Setup(r => r.SendPostRequest(
                 It.IsAny<string>(), It.IsAny<string>(), "9", IRequestManagerRepository.IsXml.NotXml, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(WaitAndTryAgainResponse)  // First call: /credit/report
-            .ReturnsAsync(WaitAndTryAgainResponse); // Second call: /credit/report/status (still waiting)
+            .ReturnsAsync(WaitAndTryAgainResponse);
 
         await sut.CreditReport(application, CancellationToken.None);
 
         requestManager.Verify(r => r.SendPostRequest(
-            It.IsAny<string>(), It.IsAny<string>(), "9", IRequestManagerRepository.IsXml.NotXml, It.IsAny<CancellationToken>()), Times.Exactly(2));
-        repository.Verify(r => r.IncrementCi017AttemptAsync(9, "02", It.IsAny<CancellationToken>()), Times.Exactly(2));
+            It.IsAny<string>(), It.IsAny<string>(), "9", IRequestManagerRepository.IsXml.NotXml, It.IsAny<CancellationToken>()), Times.Once);
+        repository.Verify(r => r.IncrementCi017AttemptAsync(9, "02", It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

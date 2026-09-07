@@ -164,9 +164,9 @@ namespace Infrastructure.CreditReportsXml
                             int.Parse(loanApplications.KeyCreditBureauKb), 17, 0, "Waiting", baseResponse.data.token,
                             cancellationToken);
 
-                        // Immediately check status with received token
+                        // Status check must wait ≥ CheckReportStatusInterval (60s) after this attempt —
+                        // worker will call CreditReportStatusXml once the interval elapses.
                         loanApplications.PToken = baseResponse.data.token;
-                        await CreditReportStatusXml(loanApplications, cancellationToken);
                         return;
                     }
                 }
