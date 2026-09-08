@@ -93,6 +93,15 @@ public static class CreditBureauPeriodReportEndpoints
 
                 return Results.Ok(response);
             }
+            catch (TimeoutException ex)
+            {
+                logger.LogWarning(ex, "Period report request timed out waiting for lock: {Error}", ex.Message);
+                logWriter.Log(logFileName, $"POST /api/creditbureau/send-by-period LockTimeout:{Environment.NewLine}{ex.Message}");
+                return Results.Problem(
+                    title: "Отчет за период уже выполняется",
+                    detail: ex.Message,
+                    statusCode: StatusCodes.Status409Conflict);
+            }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Ошибка при отправке отчетов за период: {Error}", ex.Message);

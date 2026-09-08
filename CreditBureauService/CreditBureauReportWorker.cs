@@ -21,9 +21,10 @@ public class CreditBureauReportWorker(
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation(
-            "CreditBureauReportWorker started. DelayMilliseconds={DelayMilliseconds}",
-            _workerSettings.DelayMilliseconds);
-        _logWriter.Log("WorkerServerState.txt", "Start successful!");
+            "CreditBureauReportWorker started. DelayMilliseconds={DelayMilliseconds}, LogRoot={LogRoot}",
+            _workerSettings.DelayMilliseconds,
+            _logWriter.ResolvedRoot);
+        _logWriter.Log("WorkerServerState.txt", $"Start successful! LogRoot={_logWriter.ResolvedRoot}");
 
         var iteration = 0;
         while (!stoppingToken.IsCancellationRequested)

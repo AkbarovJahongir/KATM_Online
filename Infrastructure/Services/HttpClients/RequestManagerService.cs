@@ -23,7 +23,19 @@ namespace Infrastructure.Services.HttpClients
         
         private const int MaxRetries = 3;
         private const int InitialRetryDelayMs = 1000;
+        private static readonly TimeSpan HttpRequestTimeout = TimeSpan.FromSeconds(60);
         private const string CreditReport017FullLogFile = "CreditReport017Full.txt";
+
+        private static HttpClient CreateHttpClient(string url)
+        {
+            var httpClient = new HttpClient
+            {
+                BaseAddress = new Uri(url),
+                Timeout = HttpRequestTimeout
+            };
+            httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            return httpClient;
+        }
 
         public async Task<string> SendPostRequest(string url, string jsonData, string KeyLoanHistoryKb, IsXml isxml, CancellationToken cancellationToken)
         {
@@ -42,9 +54,7 @@ namespace Infrastructure.Services.HttpClients
 
             _logger.LogInformation("Sending POST request to External service API started...");
             _logger.LogInformation("JSON data sended to External service API is: " + redactedJsonData);
-            using var httpClient = new HttpClient();
-            httpClient.BaseAddress = new Uri(url);
-            httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            using var httpClient = CreateHttpClient(url);
 
             var request = new HttpRequestMessage()
             {
@@ -155,11 +165,9 @@ namespace Infrastructure.Services.HttpClients
             _logger.LogInformation("LoanKey:{LoanKey}. Sending POST request started. Url:{Url}", LoanKey, url);
             _logger.LogInformation("LoanKey:{LoanKey}. RequestBody: {RequestBody}", LoanKey, redactedJsonData);
 
-            using var httpClient = new HttpClient();
-            httpClient.BaseAddress = new Uri(url);
-            httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            using var httpClient = CreateHttpClient(url);
 
-            var request = new HttpRequestMessage()
+            HttpRequestMessage request = new()
             {
                 Content = new StringContent(jsonData, Encoding.UTF8, "application/json"),
                 Method = HttpMethod.Post
@@ -229,12 +237,23 @@ namespace Infrastructure.Services.HttpClients
                         result = responseBody;
                         return result;
                     }
-                    catch (HttpRequestException ex) when (attempt < MaxRetries)
+                    catch (Exception ex) when (
+                        attempt < MaxRetries &&
+                        !cancellationToken.IsCancellationRequested &&
+                        (ex is HttpRequestException || ex is TaskCanceledException))
                     {
                         lastException = ex;
                         var delay = InitialRetryDelayMs * (int)Math.Pow(2, attempt - 1);
                         _logger.LogWarning("LoanKey:{LoanKey}. Attempt {Attempt}/{MaxRetries} failed. Retrying in {Delay}ms. Error: {Error}", LoanKey, attempt, MaxRetries, delay, ex.Message);
                         _logWriter.Log("RequestManager.txt", $"LoanKey:{LoanKey}. Attempt {attempt} failed: {ex.Message}. Retrying...");
+                        // HttpRequestMessage can only be sent once — rebuild content for retry
+                        request.Dispose();
+                        request = new HttpRequestMessage
+                        {
+                            Content = new StringContent(jsonData, Encoding.UTF8, "application/json"),
+                            Method = HttpMethod.Post
+                        };
+                        request.Content.Headers.ContentType!.CharSet = string.Empty;
                         await Task.Delay(delay, cancellationToken);
                     }
                 }
@@ -270,6 +289,10 @@ namespace Infrastructure.Services.HttpClients
                 }
 
                 return string.Empty;
+            }
+            finally
+            {
+                request.Dispose();
             }
         }
 
