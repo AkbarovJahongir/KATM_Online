@@ -929,14 +929,15 @@ public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : I
         return new Ci017State(attemptCount, lastStatus, lastAttemptAt);
     }
 
-    public async Task UpdateRequestHistoryStatusAsync(int loanKey, string status, CancellationToken cancellationToken)
+    public async Task UpdateRequestHistoryStatusAsync(int keyLoanHistoryKb, string status, CancellationToken cancellationToken)
     {
+        // keyLoanHistoryKb = Request_History.[Key] = Loan_History_KB.[key] (not Loan.[key] / Key_ABS_Loan).
         using (var connection = new SqlConnection(_databaseSettings.CIBConnection))
         using (var command = new SqlCommand(
-            "UPDATE [dbo].[Request_History] SET [status] = @status WHERE [Key_ABS_Loan] = @loanKey",
+            "UPDATE [dbo].[Request_History] SET [status] = @status WHERE [Key] = @keyLoanHistoryKb",
             connection))
         {
-            command.Parameters.AddWithValue("@loanKey", loanKey);
+            command.Parameters.AddWithValue("@keyLoanHistoryKb", keyLoanHistoryKb);
             command.Parameters.AddWithValue("@status", status);
             await connection.OpenAsync(cancellationToken);
             await command.ExecuteNonQueryAsync(cancellationToken);
@@ -947,10 +948,10 @@ public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : I
         // without this, a loan stuck at "09" in Request_History keeps being re-selected as if still "00".
         using (var connection = new SqlConnection(_databaseSettings.DBConnection))
         using (var command = new SqlCommand(
-            "UPDATE [dbo].[Loan_History_KB] SET [status] = @status WHERE [key] = @loanKey",
+            "UPDATE [dbo].[Loan_History_KB] SET [status] = @status WHERE [key] = @keyLoanHistoryKb",
             connection))
         {
-            command.Parameters.AddWithValue("@loanKey", loanKey);
+            command.Parameters.AddWithValue("@keyLoanHistoryKb", keyLoanHistoryKb);
             command.Parameters.AddWithValue("@status", status);
             await connection.OpenAsync(cancellationToken);
             await command.ExecuteNonQueryAsync(cancellationToken);
@@ -1023,7 +1024,7 @@ public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : I
         await connection.OpenAsync(cancellationToken);
         var result = await command.ExecuteScalarAsync(cancellationToken);
         await connection.CloseAsync();
-        return result == DBNull.Value ? null : Convert.ToByte(result);
+        return result is null or DBNull ? null : Convert.ToByte(result);
     }
 
     public async Task<byte?> GetCreditBureau002StatusAsync(int loanKey, CancellationToken cancellationToken)
@@ -1034,22 +1035,43 @@ public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : I
         await connection.OpenAsync(cancellationToken);
         var result = await command.ExecuteScalarAsync(cancellationToken);
         await connection.CloseAsync();
-        return result == DBNull.Value ? null : Convert.ToByte(result);
+        return result is null or DBNull ? null : Convert.ToByte(result);
     }
 
-    public async Task<(string? App, string? CustomerId)> GetLoanAppAndCustomerIdAsync(string loanKey, CancellationToken cancellationToken)
+    public async Task<int?> GetLoanKeyByHistoryKbAsync(int keyLoanHistoryKb, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(loanKey))
+        using var connection = new SqlConnection(_databaseSettings.DBConnection);
+        using var command = new SqlCommand(
+            @"SELECT TOP 1 l.[key]
+              FROM dbo.Loan_History_KB lh WITH (NOLOCK)
+              INNER JOIN dbo.Loan l WITH (NOLOCK) ON l.App = lh.App
+              WHERE lh.[key] = @keyLoanHistoryKb",
+            connection);
+        command.Parameters.AddWithValue("@keyLoanHistoryKb", keyLoanHistoryKb);
+
+        await connection.OpenAsync(cancellationToken);
+        var result = await command.ExecuteScalarAsync(cancellationToken);
+        await connection.CloseAsync();
+
+        return result is null or DBNull ? null : Convert.ToInt32(result);
+    }
+
+    public async Task<(string? App, string? CustomerId)> GetLoanAppAndCustomerIdAsync(string keyLoanHistoryKb, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(keyLoanHistoryKb))
         {
             return (null, null);
         }
 
         using var connection = new SqlConnection(_databaseSettings.DBConnection);
         using var command = new SqlCommand(
-            "SELECT TOP 1 App, Customer_ID FROM dbo.Loan WITH(NOLOCK) WHERE [key] = @LoanKey",
+            @"SELECT TOP 1 l.App, l.Customer_ID
+              FROM dbo.Loan_History_KB lh WITH (NOLOCK)
+              INNER JOIN dbo.Loan l WITH (NOLOCK) ON l.App = lh.App
+              WHERE lh.[key] = @keyLoanHistoryKb",
             connection);
 
-        command.Parameters.Add("@LoanKey", SqlDbType.NVarChar, 64).Value = loanKey.Trim();
+        command.Parameters.Add("@keyLoanHistoryKb", SqlDbType.NVarChar, 64).Value = keyLoanHistoryKb.Trim();
 
         await connection.OpenAsync(cancellationToken);
         using var reader = await command.ExecuteReaderAsync(cancellationToken);

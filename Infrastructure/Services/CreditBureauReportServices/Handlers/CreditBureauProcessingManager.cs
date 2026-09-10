@@ -1,3 +1,4 @@
+using Infrastructure.Common.Helpers;
 using Infrastructure.Services.Notifications;
 using Microsoft.Extensions.Logging;
 
@@ -50,6 +51,13 @@ public class CreditBureauProcessingManager
                 }
 
                 results.Add((handler.CiCode, result));
+            }
+            catch (Exception ex) when (SqlConnectionHelper.IsDeadlockException(ex))
+            {
+                // Retries already exhausted in the runner — log only, avoid Telegram spam for transient SQL deadlocks.
+                _logger.LogError(ex,
+                    "CI-{CiCode} failed after deadlock retries. Will try again on next worker iteration.",
+                    handler.CiCode);
             }
             catch (Exception ex)
             {

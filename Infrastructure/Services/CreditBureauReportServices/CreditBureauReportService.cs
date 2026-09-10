@@ -1,5 +1,5 @@
+using Infrastructure.Common.Helpers;
 using Infrastructure.Services.CreditBureauReportServices.Handlers;
-using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 
 namespace Infrastructure.Services.CreditBureauReportServices;
@@ -45,29 +45,11 @@ public class CreditBureauReportService : ICreditBureauReportService
 
         try
         {
-            await ProcessWithRetryAsync(cancellationToken);
+            await _processingManager.ProcessAllAsync(RunHandlerWithPeriodLockAsync, cancellationToken);
         }
         finally
         {
             _processingLock.Release();
-        }
-    }
-
-    private async Task ProcessWithRetryAsync(CancellationToken cancellationToken, int attemptNumber = 1, int maxAttempts = 3)
-    {
-        try
-        {
-            await _processingManager.ProcessAllAsync(RunHandlerWithPeriodLockAsync, cancellationToken);
-        }
-        catch (SqlException ex) when (ex.Number == 1205 && attemptNumber < maxAttempts)
-        {
-            var delayMs = (int)Math.Pow(2, attemptNumber) * 1000;
-            _logger.LogWarning(ex,
-                "Deadlock detected in CreditBureauReportProcessing (attempt {AttemptNumber}/{MaxAttempts}), retrying after {DelayMs}ms",
-                attemptNumber, maxAttempts, delayMs);
-
-            await Task.Delay(delayMs, cancellationToken);
-            await ProcessWithRetryAsync(cancellationToken, attemptNumber + 1, maxAttempts);
         }
     }
 
@@ -78,7 +60,7 @@ public class CreditBureauReportService : ICreditBureauReportService
         var gate = GetPeriodGate(handler.CiCode);
         if (gate is null)
         {
-            return await handler.ProcessAsync(cancellationToken);
+            return await ExecuteHandlerWithDeadlockRetryAsync(handler, cancellationToken);
         }
 
         if (!await gate.WaitAsync(PeriodLockTimeout, cancellationToken))
@@ -91,7 +73,7 @@ public class CreditBureauReportService : ICreditBureauReportService
 
         try
         {
-            return await handler.ProcessAsync(cancellationToken);
+            return await ExecuteHandlerWithDeadlockRetryAsync(handler, cancellationToken);
         }
         finally
         {
@@ -99,9 +81,16 @@ public class CreditBureauReportService : ICreditBureauReportService
         }
     }
 
-    /// <summary>
-    /// Обработка конкретного CI-запроса
-    /// </summary>
+    private Task<CiProcessingResult> ExecuteHandlerWithDeadlockRetryAsync(
+        ICiHandler handler,
+        CancellationToken cancellationToken) =>
+        SqlConnectionHelper.ExecuteWithRetryAsync(
+            handler.ProcessAsync,
+            _logger,
+            $"CI-{handler.CiCode:D3}",
+            maxAttempts: 3,
+            cancellationToken: cancellationToken);
+
     public async Task<CiProcessingResult> ProcessCiCodeAsync(int ciCode, CancellationToken cancellationToken = default)
     {
         var handler = _handlers.FirstOrDefault(h => h.CiCode == ciCode);
@@ -163,7 +152,13 @@ public class CreditBureauReportService : ICreditBureauReportService
             _logger.LogInformation(
                 "Sending CI-{CiCode} for period {StartDate} - {EndDate}, LoanKey: {LoanKey}",
                 ciCode, startDate.ToString("yyyy-MM-dd"), endDate.ToString("yyyy-MM-dd"), loanKey);
-            return await handler.SendByPeriodAsync(startDate, endDate, loanKey, cancellationToken);
+
+            return await SqlConnectionHelper.ExecuteWithRetryAsync(
+                ct => handler.SendByPeriodAsync(startDate, endDate, loanKey, ct),
+                _logger,
+                $"CI-{ciCode:D3} period",
+                maxAttempts: 3,
+                cancellationToken: cancellationToken);
         }
         finally
         {

@@ -50,6 +50,9 @@ public class CreditReportServiceTests
             .Returns(Task.CompletedTask);
         repository.Setup(r => r.UpdateRequestHistoryStatusAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
+        // Default: history key == loan key (tests that care about the App→Loan mapping override this).
+        repository.Setup(r => r.GetLoanKeyByHistoryKbAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Returns((int historyKey, CancellationToken _) => Task.FromResult<int?>(historyKey));
         repository.Setup(r => r.GetLoanAppAndCustomerIdAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(((string?)null, (string?)null));
         requestManagerRepository.Setup(r => r.InsertRequestLog(
@@ -313,15 +316,20 @@ public class CreditReportServiceTests
     public async Task CreditReport_WhenCi001NotConfirmedForIndividual_DoesNotCallBureauAndMarksRequestHistory09()
     {
         var (sut, requestManager, _, _, repository, _, _) = CreateSut();
+        // KeyCreditBureauKb = Loan_History_KB.[key]; Katm_Methods_Request.loanKey = Loan.[key] via App.
+        const int historyKey = 50;
+        const int loanKey = 9001;
         var application = new LoanApplication
         {
-            KeyCreditBureauKb = "50",
+            KeyCreditBureauKb = historyKey.ToString(),
             PClaimId = "claim-50",
             Status = "02",
             ApplicationsSubjectType = "0"
         };
 
-        repository.Setup(r => r.GetCreditBureau001StatusAsync(50, It.IsAny<CancellationToken>()))
+        repository.Setup(r => r.GetLoanKeyByHistoryKbAsync(historyKey, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(loanKey);
+        repository.Setup(r => r.GetCreditBureau001StatusAsync(loanKey, It.IsAny<CancellationToken>()))
             .ReturnsAsync((byte?)null);
 
         await sut.CreditReport(application, CancellationToken.None);
@@ -329,7 +337,9 @@ public class CreditReportServiceTests
         requestManager.Verify(r => r.SendPostRequest(
             It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<IRequestManagerRepository.IsXml>(), It.IsAny<CancellationToken>()),
             Times.Never);
-        repository.Verify(r => r.UpdateRequestHistoryStatusAsync(50, "09", It.IsAny<CancellationToken>()), Times.Once);
+        repository.Verify(r => r.GetCreditBureau001StatusAsync(loanKey, It.IsAny<CancellationToken>()), Times.Once);
+        repository.Verify(r => r.GetCreditBureau001StatusAsync(historyKey, It.IsAny<CancellationToken>()), Times.Never);
+        repository.Verify(r => r.UpdateRequestHistoryStatusAsync(historyKey, "09", It.IsAny<CancellationToken>()), Times.Once);
         repository.Verify(r => r.GetCreditBureau002StatusAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -337,15 +347,19 @@ public class CreditReportServiceTests
     public async Task CreditReport_WhenCi002NotConfirmedForEntity_DoesNotCallBureauAndMarksRequestHistory09()
     {
         var (sut, requestManager, _, _, repository, _, _) = CreateSut();
+        const int historyKey = 51;
+        const int loanKey = 9002;
         var application = new LoanApplication
         {
-            KeyCreditBureauKb = "51",
+            KeyCreditBureauKb = historyKey.ToString(),
             PClaimId = "claim-51",
             Status = "02",
             ApplicationsSubjectType = "1"
         };
 
-        repository.Setup(r => r.GetCreditBureau002StatusAsync(51, It.IsAny<CancellationToken>()))
+        repository.Setup(r => r.GetLoanKeyByHistoryKbAsync(historyKey, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(loanKey);
+        repository.Setup(r => r.GetCreditBureau002StatusAsync(loanKey, It.IsAny<CancellationToken>()))
             .ReturnsAsync((byte?)0);
 
         await sut.CreditReport(application, CancellationToken.None);
@@ -353,7 +367,33 @@ public class CreditReportServiceTests
         requestManager.Verify(r => r.SendPostRequest(
             It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<IRequestManagerRepository.IsXml>(), It.IsAny<CancellationToken>()),
             Times.Never);
-        repository.Verify(r => r.UpdateRequestHistoryStatusAsync(51, "09", It.IsAny<CancellationToken>()), Times.Once);
+        repository.Verify(r => r.GetCreditBureau002StatusAsync(loanKey, It.IsAny<CancellationToken>()), Times.Once);
+        repository.Verify(r => r.GetCreditBureau002StatusAsync(historyKey, It.IsAny<CancellationToken>()), Times.Never);
+        repository.Verify(r => r.UpdateRequestHistoryStatusAsync(historyKey, "09", It.IsAny<CancellationToken>()), Times.Once);
         repository.Verify(r => r.GetCreditBureau001StatusAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreditReport_WhenLoanKeyCannotBeResolvedFromHistory_MarksRequestHistory09()
+    {
+        var (sut, requestManager, _, _, repository, _, _) = CreateSut();
+        var application = new LoanApplication
+        {
+            KeyCreditBureauKb = "77",
+            PClaimId = "claim-77",
+            Status = "02",
+            ApplicationsSubjectType = "0"
+        };
+
+        repository.Setup(r => r.GetLoanKeyByHistoryKbAsync(77, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((int?)null);
+
+        await sut.CreditReport(application, CancellationToken.None);
+
+        requestManager.Verify(r => r.SendPostRequest(
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<IRequestManagerRepository.IsXml>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        repository.Verify(r => r.GetCreditBureau001StatusAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+        repository.Verify(r => r.UpdateRequestHistoryStatusAsync(77, "09", It.IsAny<CancellationToken>()), Times.Once);
     }
 }
