@@ -27,7 +27,8 @@ namespace CreditBureauService
                     _logWriter.Log("WorkerServerState.txt", "Catch CreditBureauProcessing message error: " + ex.Message + "\n" + ex.StackTrace);
                     await _telegramNotificationService.NotifyErrorAsync(
                         "CreditBureauWorker",
-                        $"Message: {ex.Message}\nStackTrace: {ex.StackTrace}",
+                        ex,
+                        context: "Цикл CreditBureauProcessing",
                         stoppingToken);
                     await Task.Delay(_workerSettings.DelayMilliseconds, stoppingToken);
                 }

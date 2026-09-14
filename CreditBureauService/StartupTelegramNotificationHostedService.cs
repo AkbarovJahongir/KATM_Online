@@ -16,9 +16,9 @@ public sealed class StartupTelegramNotificationHostedService(
         try
         {
             await _telegramNotificationService.NotifyAsync(
-                "KATM_Online started",
+                "KATM_Online — запуск",
                 "ApplicationStartup",
-                $"Environment: {_hostEnvironment.EnvironmentName}\nMachine: {Environment.MachineName}\nStartedAt: {DateTime.Now:yyyy-MM-dd HH:mm:ss}",
+                $"Сервис успешно запущен.\n\nОкружение: {_hostEnvironment.EnvironmentName}\nМашина: {Environment.MachineName}\nВремя запуска: {DateTime.Now:yyyy-MM-dd HH:mm:ss}",
                 cancellationToken);
         }
         catch (Exception ex)

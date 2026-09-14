@@ -64,7 +64,8 @@ public class CreditBureauProcessingManager
                 _logger.LogError(ex, "Error processing CI-{CiCode}. Error={Error}", handler.CiCode, ex.Message);
                 await _telegramNotificationService.NotifyErrorAsync(
                     $"CreditBureauProcessingManager CI-{handler.CiCode:D3}",
-                    $"Message: {ex.Message}\nStackTrace: {ex.StackTrace}",
+                    ex,
+                    context: $"Обработчик CI-{handler.CiCode:D3}",
                     cancellationToken);
             }
         }

@@ -314,7 +314,13 @@ namespace Infrastructure.CreditReports
 
             await _telegramNotificationService.NotifyErrorAsync(
                 source,
-                $"LoanKey: {loan.KeyCreditBureauKb}\nClaimId: {loan.PClaimId}\nDetails: {details}",
+                TelegramErrorFormatter.Format(
+                    category: "Лимит попыток CI-017",
+                    reason: details,
+                    action: "Проверьте статус заявки в КАТМ и историю CI-017; при необходимости обработайте вручную.",
+                    context: source,
+                    loanKey: loan.KeyCreditBureauKb,
+                    claimId: loan.PClaimId),
                 app,
                 customerId,
                 cancellationToken);

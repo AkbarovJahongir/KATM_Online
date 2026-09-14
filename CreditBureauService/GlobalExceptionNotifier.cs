@@ -23,21 +23,48 @@ public sealed class GlobalExceptionNotifier(
 
     private void OnUnhandledException(object sender, UnhandledExceptionEventArgs args)
     {
-        var exception = args.ExceptionObject as Exception;
-        var message = exception is null
-            ? $"Unhandled exception object: {args.ExceptionObject}\nIsTerminating: {args.IsTerminating}"
-            : $"Message: {exception.Message}\nIsTerminating: {args.IsTerminating}\nStackTrace: {exception}";
+        if (args.ExceptionObject is Exception exception)
+        {
+            NotifySafely(
+                "AppDomain.CurrentDomain.UnhandledException",
+                exception,
+                context: $"Необработанное исключение. IsTerminating={args.IsTerminating}");
+            return;
+        }
 
-        NotifySafely("AppDomain.CurrentDomain.UnhandledException", message);
+        NotifySafely(
+            "AppDomain.CurrentDomain.UnhandledException",
+            TelegramErrorFormatter.Format(
+                category: "Критическая ошибка процесса",
+                reason: $"Необработанный объект исключения: {args.ExceptionObject}",
+                action: "Проверьте логи приложения и перезапустите сервис при необходимости.",
+                context: $"IsTerminating={args.IsTerminating}"));
     }
 
     private void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs args)
     {
         NotifySafely(
             "TaskScheduler.UnobservedTaskException",
-            $"Message: {args.Exception.Message}\nStackTrace: {args.Exception}");
+            args.Exception,
+            context: "Необработанное исключение в Task");
 
         args.SetObserved();
+    }
+
+    private void NotifySafely(string source, Exception exception, string? context)
+    {
+        try
+        {
+            _logger.LogError(exception, "Global exception captured. Source={Source}", source);
+            _telegramNotificationService
+                .NotifyErrorAsync(source, exception, context)
+                .GetAwaiter()
+                .GetResult();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to send global exception telegram notification. Source={Source}", source);
+        }
     }
 
     private void NotifySafely(string source, string message)

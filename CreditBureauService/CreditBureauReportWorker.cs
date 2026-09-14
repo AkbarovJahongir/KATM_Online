@@ -55,7 +55,8 @@ public class CreditBureauReportWorker(
                 _logWriter.Log("WorkerServerState.txt", "Catch CreditBureauProcessing message error: " + ex.Message + "\n" + ex.StackTrace);
                 await _telegramNotificationService.NotifyErrorAsync(
                     "CreditBureauReportWorker",
-                    $"Iteration: {iteration}\nMessage: {ex.Message}\nStackTrace: {ex.StackTrace}",
+                    ex,
+                    context: $"Итерация worker #{iteration}",
                     stoppingToken);
                 await Task.Delay(_workerSettings.DelayMilliseconds, stoppingToken);
             }

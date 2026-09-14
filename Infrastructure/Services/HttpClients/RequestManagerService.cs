@@ -86,7 +86,12 @@ namespace Infrastructure.Services.HttpClients
                 var (appEx, customerIdEx) = await FetchAppAndCustomerId(KeyLoanHistoryKb, cancellationToken);
                 await _telegramNotificationService.NotifyErrorAsync(
                     "CI-017 request exception",
-                    $"Key_RequestHistory: {KeyLoanHistoryKb}\nUrl: {url}\nRequestBody: {redactedJsonData}\nException: {ex.Message}",
+                    TelegramErrorFormatter.Format(
+                        ex,
+                        context: "CI-017 POST к API КАТМ",
+                        loanKey: KeyLoanHistoryKb,
+                        url: url,
+                        request: redactedJsonData),
                     appEx, customerIdEx, cancellationToken);
                 var (codeEx, messageEx) = await _requestManagerRepository.InsertLog(KeyLoanHistoryKb, url, jsonData, request.Method.Method, 0, ex.Message, dateRequest, dateResponseEx, isxml, cancellationToken);
                 if (string.IsNullOrWhiteSpace(codeEx) || codeEx == "1")
@@ -112,7 +117,16 @@ namespace Infrastructure.Services.HttpClients
                 var (app1, customerId1) = await FetchAppAndCustomerId(KeyLoanHistoryKb, cancellationToken);
                 await _telegramNotificationService.NotifyErrorAsync(
                     "CI-017 request failed",
-                    $"Key_RequestHistory: {KeyLoanHistoryKb}\nStatusCode: {(int)httpResponseMessage.StatusCode} ({httpResponseMessage.StatusCode})\nUrl: {url}\nRequestBody: {redactedJsonData}\nResponseBody: {responseBody}",
+                    TelegramErrorFormatter.Format(
+                        category: "HTTP ошибка КАТМ",
+                        reason: $"API вернул статус {(int)httpResponseMessage.StatusCode} ({httpResponseMessage.StatusCode}).",
+                        action: "Проверьте доступность API, тело запроса и ответ КАТМ.",
+                        context: "CI-017 POST",
+                        loanKey: KeyLoanHistoryKb,
+                        url: url,
+                        statusCode: $"{(int)httpResponseMessage.StatusCode} ({httpResponseMessage.StatusCode})",
+                        request: redactedJsonData,
+                        response: responseBody),
                     app1, customerId1, cancellationToken);
                 await _repository.KatmHelper(KeyLoanHistoryKb, string.Format("Key_LoanHistoryKb:{0} External service API send {1} status code!", KeyLoanHistoryKb, httpResponseMessage.StatusCode), IHelperRepository.TypeOperation.Error, cancellationToken);
                 await _repository.KatmHelperXml(KeyLoanHistoryKb, string.Format("Key_LoanHistoryKb:{0} External service API send {1} status code!", KeyLoanHistoryKb, httpResponseMessage.StatusCode), IHelperRepository.TypeOperation.Error, cancellationToken);
@@ -124,7 +138,14 @@ namespace Infrastructure.Services.HttpClients
                 var (app2, customerId2) = await FetchAppAndCustomerId(KeyLoanHistoryKb, cancellationToken);
                 await _telegramNotificationService.NotifyErrorAsync(
                     "CI-017 empty response content",
-                    $"Key_RequestHistory: {KeyLoanHistoryKb}\nUrl: {url}\nRequestBody: {redactedJsonData}",
+                    TelegramErrorFormatter.Format(
+                        category: "Пустой ответ API",
+                        reason: "HTTP-ответ без Content (null).",
+                        action: "Проверьте доступность API КАТМ и сетевой путь.",
+                        context: "CI-017 POST",
+                        loanKey: KeyLoanHistoryKb,
+                        url: url,
+                        request: redactedJsonData),
                     app2, customerId2, cancellationToken);
                 await _repository.KatmHelper(KeyLoanHistoryKb, string.Format("Key_LoanHistoryKb:{0} Content object received from API is null!", KeyLoanHistoryKb), IHelperRepository.TypeOperation.Error, cancellationToken);
                 await _repository.KatmHelperXml(KeyLoanHistoryKb, string.Format("Key_LoanHistoryKb:{0} Content object received from API is null!", KeyLoanHistoryKb), IHelperRepository.TypeOperation.Error, cancellationToken);
@@ -267,7 +288,12 @@ namespace Infrastructure.Services.HttpClients
                 var (app3, customerId3) = await _creditBureauReportRepository.GetLoanAppAndCustomerIdAsync(LoanKey.ToString(), cancellationToken);
                 await _telegramNotificationService.NotifyErrorAsync(
                     "RequestManagerService POST request failed",
-                    $"LoanKey: {LoanKey}\nUrl: {url}\nMessage: {ex.Message}\nException: {ex}",
+                    TelegramErrorFormatter.Format(
+                        ex,
+                        context: "RequestManagerService.SendPostRequest",
+                        loanKey: LoanKey.ToString(),
+                        url: url,
+                        request: redactedJsonData),
                     app3, customerId3, cancellationToken);
 
                 var (code, message) = await _requestManagerRepository.InsertRequestLog(

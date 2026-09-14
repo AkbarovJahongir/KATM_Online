@@ -57,8 +57,12 @@ public class Ci002EntityRequestHandler : CiHandlerBase<CreditRegistrationEntityR
             await NotifyErrorAsync(
                 $"CI-{CiCode:D3} invalid response format",
                 loanKey,
-                GetResponsePreview(response, 1500),
-                cancellationToken);
+                category: "Неверный формат ответа",
+                reason: "Ответ КАТМ не является JSON.",
+                action: "Проверьте endpoint, Content-Type и тело ответа API.",
+                details: null,
+                responsePreview: GetResponsePreview(response, 1500),
+                cancellationToken: cancellationToken);
             return (false, $"Invalid response from API: {GetResponsePreview(response, 200)}", null);
         }
 
@@ -68,8 +72,12 @@ public class Ci002EntityRequestHandler : CiHandlerBase<CreditRegistrationEntityR
             await NotifyErrorAsync(
                 $"CI-{CiCode:D3} invalid JSON structure",
                 loanKey,
-                GetResponsePreview(response, 1500),
-                cancellationToken);
+                category: "Неверная структура JSON",
+                reason: "Не удалось разобрать ответ КАТМ в ожидаемую модель.",
+                action: "Сверьте схему ответа с контрактом CI и логи Full.",
+                details: null,
+                responsePreview: GetResponsePreview(response, 1500),
+                cancellationToken: cancellationToken);
             return (false, $"Invalid JSON structure from API: {GetResponsePreview(response, 200)}", null);
         }
 
@@ -89,8 +97,12 @@ public class Ci002EntityRequestHandler : CiHandlerBase<CreditRegistrationEntityR
             await NotifyErrorAsync(
                 $"CI-{CiCode:D3} API error",
                 loanKey,
-                $"Message: {message}\nResponse: {GetResponsePreview(response, 1500)}",
-                cancellationToken);
+                category: "Ошибка API КАТМ",
+                reason: message,
+                action: "Исправьте данные заявки или уточните код ошибки у КАТМ.",
+                details: null,
+                responsePreview: GetResponsePreview(response, 1500),
+                cancellationToken: cancellationToken);
             Logger.LogError("LoanKey:{LoanKey} CI-{CiCode} error. Response:{Response}", loanKey, CiCode, response);
             LogWriter.Log(logFileName, $"LoanKey:{loanKey} CI-{CiCode:D3} error. Response:{response}");
         }
