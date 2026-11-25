@@ -25,6 +25,7 @@ namespace Infrastructure
             services.AddSingleton<ICreditReportService, CreditReportService>();
             services.AddSingleton<ICreditRegistrationService, CreditRegistrationService>();
             services.AddSingleton<IRequestManagerService, RequestManagerService>();
+            services.AddSingleton<IKatmAuthService, KatmAuthService>();
             services.AddSingleton<ITelegramNotificationService, TelegramNotificationService>();
             services.AddSingleton<ICreditBureauXmlService, LoanProcessingXmlService>();
             services.AddSingleton<ICreditBureauService, LoanProcessingService>();

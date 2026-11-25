@@ -12,7 +12,7 @@ using static Application.Repositories.RequestManager.IRequestManagerRepository;
 
 namespace Infrastructure.Services.HttpClients
 {
-    public class RequestManagerService(LogWriter logWriter, ILogger<RequestManagerService> logger, IHelperRepository repository, IRequestManagerRepository requestManagerRepository, ITelegramNotificationService telegramNotificationService, ICreditBureauReportRepository creditBureauReportRepository) : IRequestManagerService
+    public class RequestManagerService(LogWriter logWriter, ILogger<RequestManagerService> logger, IHelperRepository repository, IRequestManagerRepository requestManagerRepository, ITelegramNotificationService telegramNotificationService, ICreditBureauReportRepository creditBureauReportRepository, IKatmAuthService katmAuthService) : IRequestManagerService
     {
         private readonly LogWriter _logWriter = logWriter;
         private readonly ILogger<RequestManagerService> _logger = logger;
@@ -20,6 +20,7 @@ namespace Infrastructure.Services.HttpClients
         private readonly IRequestManagerRepository _requestManagerRepository = requestManagerRepository;
         private readonly ITelegramNotificationService _telegramNotificationService = telegramNotificationService;
         private readonly ICreditBureauReportRepository _creditBureauReportRepository = creditBureauReportRepository;
+        private readonly IKatmAuthService _katmAuthService = katmAuthService;
         
         private const int MaxRetries = 3;
         private const int InitialRetryDelayMs = 1000;
@@ -73,7 +74,8 @@ namespace Infrastructure.Services.HttpClients
             string responseBody;
             try
             {
-                httpResponseMessage = await httpClient.SendAsync(request, cancellationToken);
+                // request ниже используется только для логов — в нём нет заголовка с токеном.
+                httpResponseMessage = await _katmAuthService.SendPostAsync(httpClient, jsonData, cancellationToken);
                 responseBody = httpResponseMessage.Content is null
                     ? string.Empty
                     : await httpResponseMessage.Content.ReadAsStringAsync(cancellationToken);
@@ -231,7 +233,7 @@ namespace Infrastructure.Services.HttpClients
                 {
                     try
                     {
-                        httpResponseMessage = await httpClient.SendAsync(request, cancellationToken);
+                        httpResponseMessage = await _katmAuthService.SendPostAsync(httpClient, jsonData, cancellationToken);
                         DateTime dateResponse = DateTime.Now;
                         responseBody = httpResponseMessage.Content is null
                             ? string.Empty
@@ -288,14 +290,6 @@ namespace Infrastructure.Services.HttpClients
                         var delay = InitialRetryDelayMs * (int)Math.Pow(2, attempt - 1);
                         _logger.LogWarning("LoanKey:{LoanKey}. Attempt {Attempt}/{MaxRetries} failed. Retrying in {Delay}ms. Error: {Error}", LoanKey, attempt, MaxRetries, delay, ex.Message);
                         _logWriter.Log("RequestManager.txt", $"LoanKey:{LoanKey}. Attempt {attempt} failed: {ex.Message}. Retrying...");
-                        // HttpRequestMessage can only be sent once — rebuild content for retry
-                        request.Dispose();
-                        request = new HttpRequestMessage
-                        {
-                            Content = new StringContent(jsonData, Encoding.UTF8, "application/json"),
-                            Method = HttpMethod.Post
-                        };
-                        request.Content.Headers.ContentType!.CharSet = string.Empty;
                         await Task.Delay(delay, cancellationToken);
                     }
                 }

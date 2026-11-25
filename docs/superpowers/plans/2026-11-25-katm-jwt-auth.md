@@ -546,7 +546,7 @@ git commit -m "feat: re-login and retry once on KATM 401"
 
 Почему без нового теста: у `RequestManagerService` нет тестов, а он создаёт `HttpClient` через `new`. Логика авторизации покрыта в Task 2/3. Здесь меняются только три строки вызова. Проверка — сборка, полный прогон тестов и Task 5 на TEST-стенде.
 
-- [ ] **Step 1: Конструктор** — в `RequestManagerService.cs` добавить параметр и поле:
+- [x] **Step 1: Конструктор** — в `RequestManagerService.cs` добавить параметр и поле:
 
 ```csharp
     public class RequestManagerService(LogWriter logWriter, ILogger<RequestManagerService> logger, IHelperRepository repository, IRequestManagerRepository requestManagerRepository, ITelegramNotificationService telegramNotificationService, ICreditBureauReportRepository creditBureauReportRepository, IKatmAuthService katmAuthService) : IRequestManagerService
@@ -556,7 +556,7 @@ git commit -m "feat: re-login and retry once on KATM 401"
         private readonly IKatmAuthService _katmAuthService = katmAuthService;
 ```
 
-- [ ] **Step 2: Перегрузка CI-017** (строка 76) — заменить
+- [x] **Step 2: Перегрузка CI-017** (строка 76) — заменить
 
 ```csharp
                 httpResponseMessage = await httpClient.SendAsync(request, cancellationToken);
@@ -569,7 +569,7 @@ git commit -m "feat: re-login and retry once on KATM 401"
                 httpResponseMessage = await _katmAuthService.SendPostAsync(httpClient, jsonData, cancellationToken);
 ```
 
-- [ ] **Step 3: Перегрузка CI-001…CI-023** (строка 234) — заменить
+- [x] **Step 3: Перегрузка CI-001…CI-023** (строка 234) — заменить
 
 ```csharp
                         httpResponseMessage = await httpClient.SendAsync(request, cancellationToken);
@@ -598,7 +598,7 @@ git commit -m "feat: re-login and retry once on KATM 401"
 
 Ошибка логина (`InvalidOperationException` из `KatmAuthService`) попадает в существующие `catch`: в CI-017 это общий `catch (Exception ex)` → Telegram, `InsertLog`, комментарий в `Loan_History_KB`; в CI-001…023 — `catch (Exception ex) when (ex != lastException)` → Telegram и `InsertRequestLog`. Новая обработка не нужна.
 
-- [ ] **Step 4: DI** — в `Infrastructure/Services/CreditBureauReportServices/Handlers/DependencyInjection.cs` после `services.AddSingleton<IRequestManagerService, RequestManagerService>();`:
+- [x] **Step 4: DI** — в `Infrastructure/Services/CreditBureauReportServices/Handlers/DependencyInjection.cs` после `services.AddSingleton<IRequestManagerService, RequestManagerService>();`:
 
 ```csharp
             services.AddSingleton<IKatmAuthService, KatmAuthService>();
@@ -606,14 +606,14 @@ git commit -m "feat: re-login and retry once on KATM 401"
 
 (`IHttpClientFactory` уже есть: `services.AddHttpClient()` в `CreditBureauService/DependencyInjection.cs`. Singleton обязателен, иначе кэш токена не переживёт запрос.)
 
-- [ ] **Step 5: Конфиг** — в `CreditBureauService/appsettings.json`, секция `CreditBureauReportApiOptions`, после `"PPassword"`:
+- [x] **Step 5: Конфиг** — в `CreditBureauService/appsettings.json`, секция `CreditBureauReportApiOptions`, после `"PPassword"`:
 
 ```json
     "UseJwtAuth": false,
     "AuthLoginUrl": "/katm-api/v1/auth/login",
 ```
 
-- [ ] **Step 6: Сборка и полный прогон тестов**
+- [x] **Step 6: Сборка и полный прогон тестов**
 
 Run: `dotnet build CreditBureauService.sln`
 Expected: `Build succeeded`, 0 errors.
@@ -621,7 +621,7 @@ Expected: `Build succeeded`, 0 errors.
 Run: `dotnet test Infrastructure.Tests/Infrastructure.Tests.csproj`
 Expected: все тесты PASS (старые не затронуты: `UseJwtAuth=false` по умолчанию, контракты не менялись).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add Infrastructure/Services/HttpClients/RequestManagerService.cs Infrastructure/Services/CreditBureauReportServices/Handlers/DependencyInjection.cs CreditBureauService/appsettings.json
