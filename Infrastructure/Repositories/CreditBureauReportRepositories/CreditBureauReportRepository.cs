@@ -894,6 +894,107 @@ public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : I
             PDate = GetString(reader, "pDate"),              // [ДатаОтправки]
         };
     }
+
+    // SQL 208 = Invalid object name: функцию CI-024/025 команда БД ещё не создала — очередь пуста.
+    private const int SqlInvalidObjectName = 208;
+
+    public async Task<List<CreditBureauReportQueueItem<CreditRegistrationBalanceReport>>>
+        GetBalanceReportRequestsAsync(CancellationToken cancellationToken)
+    {
+        var reports = new Dictionary<int, CreditBureauReportQueueItem<CreditRegistrationBalanceReport>>();
+        try
+        {
+            using var connection = new SqlConnection(_databaseSettings.DBConnection);
+            using var command = new SqlCommand("SELECT * FROM [dbo].[KATM_Report_024]()", connection);
+            await connection.OpenAsync(cancellationToken);
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                AddBalanceRow(
+                    reports,
+                    GetInt(reader, "loanKey", "LoanKey") ?? 0,
+                    GetString(reader, "pHead"),
+                    GetString(reader, "pDate"),
+                    GetString(reader, "departmentCode"),
+                    new CoaBalance
+                    {
+                        Coa = GetString(reader, "coa"),
+                        Currency = GetString(reader, "currency"),
+                        Date = GetString(reader, "date"),
+                        StartBalance = GetDecimal(reader, "startBalance"),
+                        Debit = GetDecimal(reader, "debit"),
+                        Credit = GetDecimal(reader, "credit"),
+                        EndBalance = GetDecimal(reader, "endBalance")
+                    });
+            }
+        }
+        catch (SqlException ex) when (ex.Number == SqlInvalidObjectName)
+        {
+            return [];
+        }
+
+        return reports.Values.ToList();
+    }
+
+    /// <summary>
+    /// Плоская строка KATM_Report_024 → отчёт (loanKey) → филиал (departmentCode) → счёт.
+    /// </summary>
+    public static void AddBalanceRow(
+        Dictionary<int, CreditBureauReportQueueItem<CreditRegistrationBalanceReport>> reports,
+        int reportKey, string? pHead, string? pDate, string? departmentCode, CoaBalance balance)
+    {
+        if (!reports.TryGetValue(reportKey, out var item))
+        {
+            item = new CreditBureauReportQueueItem<CreditRegistrationBalanceReport>
+            {
+                LoanKey = reportKey,
+                Request = new CreditRegistrationBalanceReport { PHead = pHead, PDate = pDate, PDepartmentArray = [] }
+            };
+            reports[reportKey] = item;
+        }
+
+        var departments = item.Request.PDepartmentArray!;
+        var department = departments.FirstOrDefault(d => d.Code == departmentCode);
+        if (department is null)
+        {
+            department = new DepartmentBalance { Code = departmentCode, CoaBalanceArray = [] };
+            departments.Add(department);
+        }
+
+        department.CoaBalanceArray!.Add(balance);
+    }
+
+    public async Task<List<CreditBureauReportQueueItem<CreditRegistrationGuarantee>>>
+        GetGuaranteeRequestsAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await ExecuteTableFunctionAsync("KATM_Report_025", MapGuarantee, cancellationToken);
+        }
+        catch (SqlException ex) when (ex.Number == SqlInvalidObjectName)
+        {
+            return [];
+        }
+    }
+
+    private static CreditRegistrationGuarantee MapGuarantee(SqlDataReader reader) => new()
+    {
+        PClaimId = GetString(reader, "pClaimId"),
+        PContractId = GetString(reader, "pContractId"),
+        PTin = GetString(reader, "pTin"),
+        PNibbd = GetString(reader, "pNibbd"),
+        PGuaranteeType = GetString(reader, "pGuaranteeType"),
+        PStartDate = GetString(reader, "pStartDate"),
+        PEndDate = GetString(reader, "pEndDate"),
+        PCurrency = GetString(reader, "pCurrency"),
+        PCreditAmount = GetDecimal(reader, "pCreditAmount"),
+        PQuality = GetString(reader, "pQuality"),
+        PSourceType = GetString(reader, "pSourceType"),
+        PForeignOrg = GetString(reader, "pForeignOrg"),
+        PGuaranteeInfo = GetString(reader, "pGuaranteeInfo"),
+        PActivity = GetString(reader, "pActivity"),
+        PReason = GetString(reader, "pReason"),
+    };
     public async Task IncrementCi017AttemptAsync(int loanKey, string? requestSubtype, string? currentStatus, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(requestSubtype)) throw new ArgumentException("CI-017 report subtype is required.", nameof(requestSubtype));

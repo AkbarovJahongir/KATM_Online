@@ -88,4 +88,10 @@ public interface ICiQueueReaderRepository
 
     Task<List<CreditBureauReportQueueItem<CreditRegistrationSubjectRequest>>>
         GetCreditRegistrationSubjectRequestsAsync(CancellationToken cancellationToken);
+
+    Task<List<CreditBureauReportQueueItem<CreditRegistrationBalanceReport>>>
+        GetBalanceReportRequestsAsync(CancellationToken cancellationToken);
+
+    Task<List<CreditBureauReportQueueItem<CreditRegistrationGuarantee>>>
+        GetGuaranteeRequestsAsync(CancellationToken cancellationToken);
 }

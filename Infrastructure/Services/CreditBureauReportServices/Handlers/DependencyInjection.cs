@@ -48,6 +48,8 @@ namespace Infrastructure
             services.AddSingleton<ICiHandler, Ci021PledgeSecurityRequestHandler>();
             services.AddSingleton<ICiHandler, Ci022BusinessDetailRequestHandler>();
             services.AddSingleton<ICiHandler, Ci023SubjectRequestHandler>();
+            services.AddSingleton<ICiHandler, Ci024BalanceReportHandler>();
+            services.AddSingleton<ICiHandler, Ci025GuaranteeHandler>();
 
             // Менеджер обработки
             services.AddSingleton<CreditBureauProcessingManager>();

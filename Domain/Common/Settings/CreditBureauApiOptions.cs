@@ -18,6 +18,10 @@ namespace Domain.Common.Settings
         public string CreditFactroingUrl { get; set; } = null!;
         public string CreditRegistrationBusinessDetailsUrl { get; set; } = null!;
         public string CreditRegistrationSubjectUrl { get; set; } = null!;
+        /// <summary>CI-024 (ТЗ 10.0). Пусто — метод не отправляется.</summary>
+        public string BalanceReportUrl { get; set; } = "";
+        /// <summary>CI-025 (ТЗ 10.0). Пусто — метод не отправляется.</summary>
+        public string GuaranteeUrl { get; set; } = "";
         public string HostAddress { get; set; } = null!;
     }
 }
