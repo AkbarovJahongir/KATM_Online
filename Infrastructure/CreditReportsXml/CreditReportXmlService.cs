@@ -38,7 +38,7 @@ namespace Infrastructure.CreditReportsXml
         private readonly ITelegramNotificationService _telegramNotificationService = telegramNotificationService;
         private const string CreditReport017FullLogFile = "CreditReport017Full.txt";
         private const int MaxCi017Attempts = 3;
-        private readonly ConcurrentDictionary<int, byte> _notifiedMaxAttempts = new();
+        private readonly ConcurrentDictionary<(int LoanKey, string? ReportId), byte> _notifiedMaxAttempts = new();
 
         public async Task CreditReportXml(LoanApplication loanApplications, CancellationToken cancellationToken)
         {
@@ -47,7 +47,8 @@ namespace Infrastructure.CreditReportsXml
             var loanKeyNullable = await _creditBureauReportRepository.GetLoanKeyByHistoryKbAsync(historyKey, cancellationToken);
             if (loanKeyNullable is null)
             {
-                await _creditBureauReportRepository.UpdateRequestHistoryStatusAsync(historyKey, "09", cancellationToken);
+                await _creditBureauReportRepository.UpdateRequestHistoryStatusAsync(historyKey, "09", cancellationToken, loanApplications.PReportId,
+                    $"Для отчёта CI-017 {loanApplications.PReportId} не найдена запись займа.");
                 return;
             }
 
@@ -60,19 +61,21 @@ namespace Infrastructure.CreditReportsXml
 
             if (prerequisiteStatus != 1)
             {
-                await _creditBureauReportRepository.UpdateRequestHistoryStatusAsync(historyKey, "09", cancellationToken);
+                await _creditBureauReportRepository.UpdateRequestHistoryStatusAsync(historyKey, "09", cancellationToken, loanApplications.PReportId,
+                    $"Для отчёта CI-017 {loanApplications.PReportId} не выполнено предварительное условие CI-00{(isIndividual ? 1 : 2)}.");
                 return;
             }
 
-            var ci017State = await _creditBureauReportRepository.GetCi017StateAsync(loanKey, cancellationToken);
+            var ci017State = await _creditBureauReportRepository.GetCi017StateAsync(loanKey, loanApplications.PReportId, cancellationToken);
             if (ci017State.AttemptCount >= MaxCi017Attempts)
             {
-                if (_notifiedMaxAttempts.TryAdd(loanKey, 0))
+                if (_notifiedMaxAttempts.TryAdd((loanKey, loanApplications.PReportId), 0))
                 {
                     await NotifyErrorAsync("CI-017 max attempts", loanApplications, $"Max attempts ({MaxCi017Attempts}) reached", cancellationToken);
                 }
                 await _creditBureauReportRepository.UpsertCiStatusAsync(loanKey, 17, 2, $"Max attempts ({MaxCi017Attempts}) reached", null, cancellationToken);
-                await _creditBureauReportRepository.UpdateRequestHistoryStatusAsync(historyKey, "09", cancellationToken);
+                await _creditBureauReportRepository.UpdateRequestHistoryStatusAsync(historyKey, "09", cancellationToken, loanApplications.PReportId,
+                    $"CI-017 отчёт {loanApplications.PReportId}: достигнут лимит попыток ({MaxCi017Attempts}).");
                 return;
             }
 
@@ -108,7 +111,8 @@ namespace Infrastructure.CreditReportsXml
                     requestJson,
                     loanApplications.KeyCreditBureauKb,
                     IRequestManagerRepository.IsXml.Xml,
-                    cancellationToken);
+                    cancellationToken,
+                    loanApplications.PReportId);
                 var dateResponse = DateTime.Now;
 
                 await _requestManagerRepository.InsertRequestLog(
@@ -130,7 +134,7 @@ namespace Infrastructure.CreditReportsXml
                     loanKey, loanApplications.PClaimId, "Report", ci017State.AttemptCount + 1,
                     requestJson, response, dateRequest, dateResponse, cancellationToken);
 
-                await _creditBureauReportRepository.IncrementCi017AttemptAsync(loanKey, loanApplications.Status, cancellationToken);
+                await _creditBureauReportRepository.IncrementCi017AttemptAsync(loanKey, loanApplications.PReportId, loanApplications.Status, cancellationToken);
 
                 if (string.IsNullOrWhiteSpace(response))
                 {
@@ -149,7 +153,7 @@ namespace Infrastructure.CreditReportsXml
                     try
                     {
                         await _helperRepository.KatmHelperXml(loanApplications.KeyCreditBureauKb,
-                            baseResponse.data.reportBase64, IHelperRepository.TypeOperation.Base64, cancellationToken);
+                            baseResponse.data.reportBase64, IHelperRepository.TypeOperation.Base64, cancellationToken, loanApplications.PReportId);
                         _logWriter.Log("TestParser.txt", "start");
                         try
                         {
@@ -160,6 +164,9 @@ namespace Infrastructure.CreditReportsXml
                         catch (Exception ex)
                         {
                             _logWriter.Log("TestParser.txt", "catch 1--" + ex.Message);
+                            await _helperRepository.KatmHelperXml(loanApplications.KeyCreditBureauKb,
+                                $"Ошибка при разборе отчёта CI-017 {loanApplications.PReportId}. Подробности записаны в журнал сервиса.",
+                                IHelperRepository.TypeOperation.Comment, cancellationToken, loanApplications.PReportId);
                         }
 
                         await _creditBureauReportRepository.UpsertCiStatusAsync(
@@ -180,7 +187,7 @@ namespace Infrastructure.CreditReportsXml
                     {
                         // сохраняем токен
                         await _helperRepository.KatmHelperXml(loanApplications.KeyCreditBureauKb,
-                            baseResponse.data.token, IHelperRepository.TypeOperation.Token, cancellationToken);
+                            baseResponse.data.token, IHelperRepository.TypeOperation.Token, cancellationToken, loanApplications.PReportId);
                         await _creditBureauReportRepository.UpsertCiStatusAsync(
                             loanKey, 17, 0, "Waiting", baseResponse.data.token,
                             cancellationToken);
@@ -190,6 +197,9 @@ namespace Infrastructure.CreditReportsXml
                         loanApplications.PToken = baseResponse.data.token;
                         return;
                     }
+                    await _helperRepository.KatmHelperXml(loanApplications.KeyCreditBureauKb,
+                        $"Отчёт CI-017 {loanApplications.PReportId}: ожидается ответ КАТМ, токен пока не получен.",
+                        IHelperRepository.TypeOperation.Comment, cancellationToken, loanApplications.PReportId);
                 }
                 // Claim not found - Заявка не найдена
                 else if (baseResponse?.data?.result == CreditBureauResultCodes.NO_TOKEN_FOUND)
@@ -197,7 +207,7 @@ namespace Infrastructure.CreditReportsXml
                     if (string.IsNullOrEmpty(baseResponse.data.token))
                     {
                         await _helperRepository.KatmHelperXml(loanApplications.KeyCreditBureauKb, "Заявка не найдена!",
-                            IHelperRepository.TypeOperation.Error, cancellationToken);
+                            IHelperRepository.TypeOperation.Error, cancellationToken, loanApplications.PReportId);
                         await _creditBureauReportRepository.UpsertCiStatusAsync(
                             loanKey, 17, 2, "Claim not found", null,
                             cancellationToken);
@@ -207,7 +217,7 @@ namespace Infrastructure.CreditReportsXml
                 else if (baseResponse?.data?.result == CreditBureauResultCodes.IDENTICAL_REQUEST)
                 {
                     await _helperRepository.KatmHelperXml(loanApplications.KeyCreditBureauKb, 5.ToJSON(),
-                        IHelperRepository.TypeOperation.AddNextAccess, cancellationToken);
+                        IHelperRepository.TypeOperation.AddNextAccess, cancellationToken, loanApplications.PReportId);
                     await _creditBureauReportRepository.UpsertCiStatusAsync(
                         loanKey, 17, 2, "Identical request", null,
                         cancellationToken);
@@ -216,10 +226,16 @@ namespace Infrastructure.CreditReportsXml
                 {
                     await _helperRepository.KatmHelperXml(loanApplications.KeyCreditBureauKb,
                         "Субъект не дает согласия на получение кредитной истории, подключена услуга Freeze. Субъекту необходимо отключить услугу Freeze.",
-                        IHelperRepository.TypeOperation.Error, cancellationToken);
+                        IHelperRepository.TypeOperation.Error, cancellationToken, loanApplications.PReportId);
                     await _creditBureauReportRepository.UpsertCiStatusAsync(
                         loanKey, 17, 2, "Freeze service active", null,
                         cancellationToken);
+                }
+                else if (baseResponse?.data?.result is not null)
+                {
+                    await _helperRepository.KatmHelperXml(loanApplications.KeyCreditBureauKb,
+                        $"КАТМ вернул результат {baseResponse.data.result} для отчёта CI-017 {loanApplications.PReportId}.",
+                        IHelperRepository.TypeOperation.Comment, cancellationToken, loanApplications.PReportId);
                 }
             }
             catch (Exception ex)
@@ -227,6 +243,16 @@ namespace Infrastructure.CreditReportsXml
                 _logWriter.Log("CreditReportCatchXml.txt",
                     $"KeyAbsLoan:ClaimId: {loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyCreditBureauKb} - {DateTime.Now}\n\n" +
                     ex.Message);
+                if (!cancellationToken.IsCancellationRequested)
+                {
+                    try
+                    {
+                        await _helperRepository.KatmHelperXml(loanApplications.KeyCreditBureauKb,
+                            $"Ошибка при обработке отчёта CI-017 {loanApplications.PReportId}. Подробности записаны в журнал сервиса.",
+                            IHelperRepository.TypeOperation.Comment, cancellationToken, loanApplications.PReportId);
+                    }
+                    catch { }
+                }
                 return;
             }
         }
@@ -237,21 +263,23 @@ namespace Infrastructure.CreditReportsXml
             var loanKeyNullable = await _creditBureauReportRepository.GetLoanKeyByHistoryKbAsync(historyKey, cancellationToken);
             if (loanKeyNullable is null)
             {
-                await _creditBureauReportRepository.UpdateRequestHistoryStatusAsync(historyKey, "09", cancellationToken);
+                await _creditBureauReportRepository.UpdateRequestHistoryStatusAsync(historyKey, "09", cancellationToken, loanApplications.PReportId,
+                    $"Для проверки статуса отчёта CI-017 {loanApplications.PReportId} не найдена запись займа.");
                 return;
             }
 
             var loanKey = loanKeyNullable.Value;
 
-            var ci017State = await _creditBureauReportRepository.GetCi017StateAsync(loanKey, cancellationToken);
+            var ci017State = await _creditBureauReportRepository.GetCi017StateAsync(loanKey, loanApplications.PReportId, cancellationToken);
             if (ci017State.AttemptCount >= MaxCi017Attempts)
             {
-                if (_notifiedMaxAttempts.TryAdd(loanKey, 0))
+                if (_notifiedMaxAttempts.TryAdd((loanKey, loanApplications.PReportId), 0))
                 {
                     await NotifyErrorAsync("CI-017 max attempts", loanApplications, $"Max attempts ({MaxCi017Attempts}) reached", cancellationToken);
                 }
                 await _creditBureauReportRepository.UpsertCiStatusAsync(loanKey, 17, 2, $"Max attempts ({MaxCi017Attempts}) reached", null, cancellationToken);
-                await _creditBureauReportRepository.UpdateRequestHistoryStatusAsync(historyKey, "09", cancellationToken);
+                await _creditBureauReportRepository.UpdateRequestHistoryStatusAsync(historyKey, "09", cancellationToken, loanApplications.PReportId,
+                    $"CI-017 отчёт {loanApplications.PReportId}: достигнут лимит попыток проверки статуса ({MaxCi017Attempts}).");
                 return;
             }
 
@@ -265,6 +293,9 @@ namespace Infrastructure.CreditReportsXml
             // Без токена нечего проверять на бюро - значит запрос CI-017 (/credit/report) ещё не выполнялся
             if (string.IsNullOrEmpty(loanApplications.PToken))
             {
+                await _helperRepository.KatmHelperXml(loanApplications.KeyCreditBureauKb,
+                    $"Отчёт CI-017 {loanApplications.PReportId}: ожидается получение токена.",
+                    IHelperRepository.TypeOperation.Comment, cancellationToken, loanApplications.PReportId);
                 return;
             }
 
@@ -296,7 +327,8 @@ namespace Infrastructure.CreditReportsXml
                     requestJson,
                     loanApplications.KeyCreditBureauKb,
                     IRequestManagerRepository.IsXml.Xml,
-                    cancellationToken);
+                    cancellationToken,
+                    loanApplications.PReportId);
                 var dateResponse = DateTime.Now;
 
                 await _requestManagerRepository.InsertRequestLog(
@@ -318,7 +350,7 @@ namespace Infrastructure.CreditReportsXml
                     loanKey, loanApplications.PClaimId, "StatusRequest", ci017State.AttemptCount + 1,
                     requestJson, response, dateRequest, dateResponse, cancellationToken);
 
-                await _creditBureauReportRepository.IncrementCi017AttemptAsync(loanKey, loanApplications.Status, cancellationToken);
+                await _creditBureauReportRepository.IncrementCi017AttemptAsync(loanKey, loanApplications.PReportId, loanApplications.Status, cancellationToken);
 
                 if (string.IsNullOrWhiteSpace(response))
                 {
@@ -334,7 +366,7 @@ namespace Infrastructure.CreditReportsXml
                 if (baseResponse.data.result == CreditBureauResultCodes.SUCCESS_05000)
                 {
                     await _helperRepository.KatmHelperXml(loanApplications.KeyCreditBureauKb,
-                        baseResponse.data.reportBase64, IHelperRepository.TypeOperation.Base64, cancellationToken);
+                        baseResponse.data.reportBase64, IHelperRepository.TypeOperation.Base64, cancellationToken, loanApplications.PReportId);
                     _logWriter.Log("TestParser.txt", "start");
                     try
                     {
@@ -354,7 +386,7 @@ namespace Infrastructure.CreditReportsXml
                 else if (baseResponse.data.result == CreditBureauResultCodes.IDENTICAL_REQUEST)
                 {
                     await _helperRepository.KatmHelperXml(loanApplications.KeyCreditBureauKb, 5.ToJSON(),
-                        IHelperRepository.TypeOperation.AddNextAccess, cancellationToken);
+                        IHelperRepository.TypeOperation.AddNextAccess, cancellationToken, loanApplications.PReportId);
                     await _creditBureauReportRepository.UpsertCiStatusAsync(
                         loanKey, 17, 2, "Identical request", null,
                         cancellationToken);
@@ -363,7 +395,7 @@ namespace Infrastructure.CreditReportsXml
                 else if (baseResponse.data.result == CreditBureauResultCodes.WAIT_AND_TRY_AGAIN)
                 {
                     await _helperRepository.KatmHelperXml(loanApplications.KeyCreditBureauKb, 1.ToJSON(),
-                        IHelperRepository.TypeOperation.AddNextAccess, cancellationToken);
+                        IHelperRepository.TypeOperation.AddNextAccess, cancellationToken, loanApplications.PReportId);
                     await _creditBureauReportRepository.UpsertCiStatusAsync(
                         loanKey, 17, 0, "Waiting", loanApplications.PToken,
                         cancellationToken);
@@ -371,6 +403,9 @@ namespace Infrastructure.CreditReportsXml
                 }
                 else
                 {
+                    await _helperRepository.KatmHelperXml(loanApplications.KeyCreditBureauKb,
+                        $"Проверка статуса отчёта CI-017 {loanApplications.PReportId} вернула результат {baseResponse.data.result}.",
+                        IHelperRepository.TypeOperation.Comment, cancellationToken, loanApplications.PReportId);
                     return;
                 }
             }
@@ -379,6 +414,16 @@ namespace Infrastructure.CreditReportsXml
                 _logWriter.Log("CreditReportStatusResponseXml.txt",
                     $"KeyAbsLoan:ClaimId: {loanApplications.PClaimId} - KeyRequestHistoryKb:{loanApplications.KeyCreditBureauKb} - {DateTime.Now}\n\n" +
                     ex.Message);
+                if (!cancellationToken.IsCancellationRequested)
+                {
+                    try
+                    {
+                        await _helperRepository.KatmHelperXml(loanApplications.KeyCreditBureauKb,
+                            $"Ошибка при проверке статуса отчёта CI-017 {loanApplications.PReportId}. Подробности записаны в журнал сервиса.",
+                            IHelperRepository.TypeOperation.Comment, cancellationToken, loanApplications.PReportId);
+                    }
+                    catch { }
+                }
                 return;
             }
         }

@@ -8,9 +8,10 @@
             Token,
             Base64,
             Error,
+            Comment,
             AddNextAccess
         }
-        Task KatmHelper(string keyLoanHistory, string data, TypeOperation typeOperation, CancellationToken cancellationToken);
-        Task KatmHelperXml(string keyLoanHistory, string data, TypeOperation typeOperation, CancellationToken cancellationToken);
+        Task KatmHelper(string keyLoanHistory, string data, TypeOperation typeOperation, CancellationToken cancellationToken, string? requestSubtype = null);
+        Task KatmHelperXml(string keyLoanHistory, string data, TypeOperation typeOperation, CancellationToken cancellationToken, string? requestSubtype = null);
     }
 }

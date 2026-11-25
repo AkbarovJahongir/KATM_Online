@@ -37,7 +37,7 @@ namespace Infrastructure.Services.HttpClients
             return httpClient;
         }
 
-        public async Task<string> SendPostRequest(string url, string jsonData, string KeyLoanHistoryKb, IsXml isxml, CancellationToken cancellationToken)
+        public async Task<string> SendPostRequest(string url, string jsonData, string KeyLoanHistoryKb, IsXml isxml, CancellationToken cancellationToken, string? requestSubtype = null)
         {
             string result = string.Empty;
             if (string.IsNullOrWhiteSpace(url))
@@ -96,6 +96,21 @@ namespace Infrastructure.Services.HttpClients
                 var (codeEx, messageEx) = await _requestManagerRepository.InsertLog(KeyLoanHistoryKb, url, jsonData, request.Method.Method, 0, ex.Message, dateRequest, dateResponseEx, isxml, cancellationToken);
                 if (string.IsNullOrWhiteSpace(codeEx) || codeEx == "1")
                     _logWriter.EmergencyLog("EmergencyLog.txt", "Key_RequestHistory:" + KeyLoanHistoryKb + "\n\nException:" + ex.Message + "\n\n" + messageEx);
+                if (!cancellationToken.IsCancellationRequested)
+                {
+                    try
+                    {
+                        var comment = $"Не удалось отправить запрос CI-017 для отчёта {requestSubtype}. Подробности записаны в журнале сервиса.";
+                        if (isxml == IsXml.Xml)
+                            await _repository.KatmHelperXml(KeyLoanHistoryKb, comment, IHelperRepository.TypeOperation.Comment, cancellationToken, requestSubtype);
+                        else
+                            await _repository.KatmHelper(KeyLoanHistoryKb, comment, IHelperRepository.TypeOperation.Comment, cancellationToken, requestSubtype);
+                    }
+                    catch (Exception commentException)
+                    {
+                        _logWriter.Log("RequestManager.txt", $"Failed to write Loan_History_KB comment for {KeyLoanHistoryKb}: {commentException.Message}");
+                    }
+                }
                 return result;
             }
             DateTime dateResponse = DateTime.Now;
@@ -128,8 +143,11 @@ namespace Infrastructure.Services.HttpClients
                         request: redactedJsonData,
                         response: responseBody),
                     app1, customerId1, cancellationToken);
-                await _repository.KatmHelper(KeyLoanHistoryKb, string.Format("Key_LoanHistoryKb:{0} External service API send {1} status code!", KeyLoanHistoryKb, httpResponseMessage.StatusCode), IHelperRepository.TypeOperation.Error, cancellationToken);
-                await _repository.KatmHelperXml(KeyLoanHistoryKb, string.Format("Key_LoanHistoryKb:{0} External service API send {1} status code!", KeyLoanHistoryKb, httpResponseMessage.StatusCode), IHelperRepository.TypeOperation.Error, cancellationToken);
+                var error = $"КАТМ вернул HTTP-статус {(int)httpResponseMessage.StatusCode} при запросе CI-017 для отчёта {requestSubtype}. Подробности записаны в журнале сервиса.";
+                if (isxml == IsXml.Xml)
+                    await _repository.KatmHelperXml(KeyLoanHistoryKb, error, IHelperRepository.TypeOperation.Error, cancellationToken, requestSubtype);
+                else
+                    await _repository.KatmHelper(KeyLoanHistoryKb, error, IHelperRepository.TypeOperation.Error, cancellationToken, requestSubtype);
                 return result;
             }
             if (httpResponseMessage.Content == null)
@@ -147,8 +165,11 @@ namespace Infrastructure.Services.HttpClients
                         url: url,
                         request: redactedJsonData),
                     app2, customerId2, cancellationToken);
-                await _repository.KatmHelper(KeyLoanHistoryKb, string.Format("Key_LoanHistoryKb:{0} Content object received from API is null!", KeyLoanHistoryKb), IHelperRepository.TypeOperation.Error, cancellationToken);
-                await _repository.KatmHelperXml(KeyLoanHistoryKb, string.Format("Key_LoanHistoryKb:{0} Content object received from API is null!", KeyLoanHistoryKb), IHelperRepository.TypeOperation.Error, cancellationToken);
+                var error = $"КАТМ вернул пустой ответ на запрос CI-017 для отчёта {requestSubtype}.";
+                if (isxml == IsXml.Xml)
+                    await _repository.KatmHelperXml(KeyLoanHistoryKb, error, IHelperRepository.TypeOperation.Error, cancellationToken, requestSubtype);
+                else
+                    await _repository.KatmHelper(KeyLoanHistoryKb, error, IHelperRepository.TypeOperation.Error, cancellationToken, requestSubtype);
                 return result;
             }
             _logger.LogInformation(string.Format("POST Response value: {0}", httpResponseMessage));
