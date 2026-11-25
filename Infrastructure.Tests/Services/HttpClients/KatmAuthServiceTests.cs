@@ -102,6 +102,19 @@ public class KatmAuthServiceTests
     }
 
     [Fact]
+    public async Task SendPostAsync_WhenLoginReturnsAccesTokenSpelling_UsesIt()
+    {
+        var time = new FakeTime();
+        var token = Jwt(time.Now.AddHours(1), "t1");
+        var login = LoginOk(token).Replace("\"accessToken\"", "\"accesToken\"");
+        var (sut, katm, api) = Create(useJwt: true, time, new Queue<string>([login]));
+
+        using (await sut.SendPostAsync(api, RequestJson, CancellationToken.None)) { }
+
+        Assert.Equal($"Bearer {token}", katm.Requests.Last().Authorization);
+    }
+
+    [Fact]
     public async Task SendPostAsync_WhenTokenNearExpiry_LogsInAgain()
     {
         var time = new FakeTime();

@@ -114,8 +114,10 @@ namespace Infrastructure.Services.HttpClients
             try
             {
                 var json = JObject.Parse(responseBody);
-                token = (string?)json.SelectToken("data.accessToken");
-                errorMessage = (string?)json.SelectToken("error.errMsg");
+                // ТЗ 10.0: в таблице поле "accesToken", в примере "accessToken" — принимаем оба.
+                token = (string?)json.SelectToken("data.accessToken") ?? (string?)json.SelectToken("data.accesToken");
+                // Тело JSON может содержать токены — в сообщение (Telegram/логи) идёт только errMsg.
+                errorMessage = (string?)json.SelectToken("error.errMsg") ?? "ответ без error.errMsg";
             }
             catch (JsonException)
             {
