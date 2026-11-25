@@ -3,6 +3,7 @@ using Infrastructure.Common.Helpers.JsonHelpes;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 
@@ -40,6 +41,15 @@ namespace Infrastructure.Services.HttpClients
 
             var body = jsonData.RemoveSecurity();
             var token = await GetAccessTokenAsync(cancellationToken);
+            var response = await PostAsync(httpClient, body, token, cancellationToken);
+            if (response.StatusCode != HttpStatusCode.Unauthorized)
+                return response;
+
+            // Токен мог быть отозван на стороне КАТМ раньше exp — перелогин и один повтор.
+            logger.LogWarning("КАТМ вернул 401, повторный логин и повтор запроса");
+            response.Dispose();
+            Invalidate(token);
+            token = await GetAccessTokenAsync(cancellationToken);
             return await PostAsync(httpClient, body, token, cancellationToken);
         }
 
@@ -82,6 +92,14 @@ namespace Infrastructure.Services.HttpClients
 
         private bool IsFresh(CachedToken? cached) =>
             cached is not null && _time.GetUtcNow() < cached.ExpiresAt - RefreshMargin;
+
+        // Сбрасываем только тот токен, который получил 401: параллельный поток мог уже взять новый.
+        private void Invalidate(string token)
+        {
+            var cached = _cached;
+            if (cached?.Value == token)
+                Interlocked.CompareExchange(ref _cached, null, cached);
+        }
 
         private async Task<string> LoginAsync(CancellationToken cancellationToken)
         {

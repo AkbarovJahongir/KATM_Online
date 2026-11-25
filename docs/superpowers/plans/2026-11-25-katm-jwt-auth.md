@@ -451,7 +451,7 @@ git commit -m "feat: add KatmAuthService for KATM JWT bearer auth (TZ 10.0)"
 - Consumes: `KatmAuthService`, тестовые `Create`, `Jwt`, `LoginOk`, `FakeTime` из Task 2.
 - Produces: поведение `SendPostAsync`: при 401 перелогин и **один** повтор; второй 401 возвращается вызывающему как есть.
 
-- [ ] **Step 1: Написать падающие тесты** (дописать в `KatmAuthServiceTests`)
+- [x] **Step 1: Написать падающие тесты** (дописать в `KatmAuthServiceTests`)
 
 ```csharp
     [Fact]
@@ -485,12 +485,12 @@ git commit -m "feat: add KatmAuthService for KATM JWT bearer auth (TZ 10.0)"
     }
 ```
 
-- [ ] **Step 2: Запустить, убедиться что падают**
+- [x] **Step 2: Запустить, убедиться что падают**
 
 Run: `dotnet test Infrastructure.Tests/Infrastructure.Tests.csproj --filter "FullyQualifiedName~KatmAuthServiceTests.SendPostAsync_WhenApiReturns401"`
 Expected: FAIL — `Assert.Equal() Failure: Expected: OK, Actual: Unauthorized` и `Expected: 4, Actual: 2`.
 
-- [ ] **Step 3: Реализация** — в `KatmAuthService.cs` добавить `using System.Net;` и заменить ветку JWT в `SendPostAsync`:
+- [x] **Step 3: Реализация** — в `KatmAuthService.cs` добавить `using System.Net;` и заменить ветку JWT в `SendPostAsync`:
 
 ```csharp
             var body = jsonData.RemoveSecurity();
@@ -519,12 +519,12 @@ Expected: FAIL — `Assert.Equal() Failure: Expected: OK, Actual: Unauthorized` 
         }
 ```
 
-- [ ] **Step 4: Запустить тесты**
+- [x] **Step 4: Запустить тесты**
 
 Run: `dotnet test Infrastructure.Tests/Infrastructure.Tests.csproj --filter "FullyQualifiedName~KatmAuthServiceTests"`
 Expected: PASS, 6 тестов.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add Infrastructure/Services/HttpClients/KatmAuthService.cs Infrastructure.Tests/Services/HttpClients/KatmAuthServiceTests.cs

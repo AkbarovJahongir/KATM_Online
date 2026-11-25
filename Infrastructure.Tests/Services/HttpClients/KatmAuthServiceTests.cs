@@ -129,4 +129,34 @@ public class KatmAuthServiceTests
         Assert.Contains("Неверный логин или пароль", ex.Message);
         Assert.DoesNotContain("s3cr3t", ex.Message);
     }
+
+    [Fact]
+    public async Task SendPostAsync_WhenApiReturns401_ReloginsAndRetriesOnce()
+    {
+        var time = new FakeTime();
+        var first = Jwt(time.Now.AddHours(1), "t1");
+        var second = Jwt(time.Now.AddHours(1), "t2");
+        var (sut, katm, api) = Create(useJwt: true, time, new Queue<string>([LoginOk(first), LoginOk(second)]),
+            HttpStatusCode.Unauthorized, HttpStatusCode.OK);
+
+        using var response = await sut.SendPostAsync(api, RequestJson, CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(2, katm.Requests.Count(r => r.Path.EndsWith("/auth/login")));
+        Assert.Equal($"Bearer {second}", katm.Requests.Last().Authorization);
+    }
+
+    [Fact]
+    public async Task SendPostAsync_WhenApiReturns401Twice_ReturnsSecond401WithoutLooping()
+    {
+        var time = new FakeTime();
+        var (sut, katm, api) = Create(useJwt: true, time,
+            new Queue<string>([LoginOk(Jwt(time.Now.AddHours(1), "t1")), LoginOk(Jwt(time.Now.AddHours(1), "t2"))]),
+            HttpStatusCode.Unauthorized, HttpStatusCode.Unauthorized);
+
+        using var response = await sut.SendPostAsync(api, RequestJson, CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(4, katm.Requests.Count); // login, api, login, api
+    }
 }
