@@ -25,10 +25,11 @@ namespace CreditBureauService
                     .Bind(configuration.GetSection("StopFactorParserSettings"));
             Console.WriteLine("StopFactorParserSettings подключены");
 
-            // Adding Logger To File
-            var logger = new LogWriter(Directory.GetCurrentDirectory(), workerSettings.Logs);
+            // File logs next to the executable (not CurrentDirectory — under Windows Service that is System32).
+            var logRoot = AppContext.BaseDirectory;
+            var logger = new LogWriter(logRoot, workerSettings.Logs);
             services.AddSingleton(logger);
-            Console.WriteLine($"LogWriter инициализирован: Путь={workerSettings.Logs}");
+            Console.WriteLine($"LogWriter инициализирован: Enabled={workerSettings.Logs}, PreferredRoot={logRoot}, ResolvedRoot={logger.ResolvedRoot}");
             // Adding Logger To File
 
             /// START DB SETTINGS

@@ -35,12 +35,25 @@ public sealed class TelegramNotificationService(
 
     public async Task NotifyErrorAsync(string source, string message, CancellationToken cancellationToken = default)
     {
-        await SendAsync("KATM_Online error", source, message, null, null, cancellationToken);
+        await SendAsync("KATM_Online — ошибка", source, message, null, null, cancellationToken);
     }
 
     public async Task NotifyErrorAsync(string source, string message, string? app, string? customerId, CancellationToken cancellationToken = default)
     {
-        await SendAsync("KATM_Online error", source, message, app, customerId, cancellationToken);
+        await SendAsync("KATM_Online — ошибка", source, message, app, customerId, cancellationToken);
+    }
+
+    public Task NotifyErrorAsync(string source, Exception exception, CancellationToken cancellationToken = default) =>
+        NotifyErrorAsync(source, exception, context: null, cancellationToken);
+
+    public Task NotifyErrorAsync(
+        string source,
+        Exception exception,
+        string? context,
+        CancellationToken cancellationToken = default)
+    {
+        var message = TelegramErrorFormatter.Format(exception, context);
+        return SendAsync("KATM_Online — ошибка", source, message, null, null, cancellationToken);
     }
 
     private async Task SendAsync(
@@ -153,14 +166,12 @@ public sealed class TelegramNotificationService(
     {
         var builder = new StringBuilder()
             .AppendLine(title)
-            .Append("Source: ").AppendLine(source)
-            .Append("Time: ").AppendLine(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
-
-        builder.Append("APP: ").AppendLine(string.IsNullOrWhiteSpace(app) ? "N/A" : app);
-        builder.Append("Customer_ID: ").AppendLine(string.IsNullOrWhiteSpace(customerId) ? "N/A" : customerId);
-
-        builder
-            .AppendLine()
+            .AppendLine("────────────────────")
+            .Append("Источник: ").AppendLine(source)
+            .Append("Время: ").AppendLine(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"))
+            .Append("APP: ").AppendLine(string.IsNullOrWhiteSpace(app) ? "N/A" : app)
+            .Append("Customer_ID: ").AppendLine(string.IsNullOrWhiteSpace(customerId) ? "N/A" : customerId)
+            .AppendLine("────────────────────")
             .AppendLine(message.Trim());
 
         var text = builder.ToString();

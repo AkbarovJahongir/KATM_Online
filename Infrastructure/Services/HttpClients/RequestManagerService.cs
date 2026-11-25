@@ -12,7 +12,7 @@ using static Application.Repositories.RequestManager.IRequestManagerRepository;
 
 namespace Infrastructure.Services.HttpClients
 {
-    public class RequestManagerService(LogWriter logWriter, ILogger<RequestManagerService> logger, IHelperRepository repository, IRequestManagerRepository requestManagerRepository, ITelegramNotificationService telegramNotificationService, ICreditBureauReportRepository creditBureauReportRepository) : IRequestManagerService
+    public class RequestManagerService(LogWriter logWriter, ILogger<RequestManagerService> logger, IHelperRepository repository, IRequestManagerRepository requestManagerRepository, ITelegramNotificationService telegramNotificationService, ICreditBureauReportRepository creditBureauReportRepository, IKatmAuthService katmAuthService) : IRequestManagerService
     {
         private readonly LogWriter _logWriter = logWriter;
         private readonly ILogger<RequestManagerService> _logger = logger;
@@ -20,12 +20,25 @@ namespace Infrastructure.Services.HttpClients
         private readonly IRequestManagerRepository _requestManagerRepository = requestManagerRepository;
         private readonly ITelegramNotificationService _telegramNotificationService = telegramNotificationService;
         private readonly ICreditBureauReportRepository _creditBureauReportRepository = creditBureauReportRepository;
+        private readonly IKatmAuthService _katmAuthService = katmAuthService;
         
         private const int MaxRetries = 3;
         private const int InitialRetryDelayMs = 1000;
+        private static readonly TimeSpan HttpRequestTimeout = TimeSpan.FromSeconds(60);
         private const string CreditReport017FullLogFile = "CreditReport017Full.txt";
 
-        public async Task<string> SendPostRequest(string url, string jsonData, string KeyLoanHistoryKb, IsXml isxml, CancellationToken cancellationToken)
+        private static HttpClient CreateHttpClient(string url)
+        {
+            var httpClient = new HttpClient
+            {
+                BaseAddress = new Uri(url),
+                Timeout = HttpRequestTimeout
+            };
+            httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            return httpClient;
+        }
+
+        public async Task<string> SendPostRequest(string url, string jsonData, string KeyLoanHistoryKb, IsXml isxml, CancellationToken cancellationToken, string? requestSubtype = null)
         {
             string result = string.Empty;
             if (string.IsNullOrWhiteSpace(url))
@@ -42,9 +55,7 @@ namespace Infrastructure.Services.HttpClients
 
             _logger.LogInformation("Sending POST request to External service API started...");
             _logger.LogInformation("JSON data sended to External service API is: " + redactedJsonData);
-            using var httpClient = new HttpClient();
-            httpClient.BaseAddress = new Uri(url);
-            httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            using var httpClient = CreateHttpClient(url);
 
             var request = new HttpRequestMessage()
             {
@@ -63,7 +74,8 @@ namespace Infrastructure.Services.HttpClients
             string responseBody;
             try
             {
-                httpResponseMessage = await httpClient.SendAsync(request, cancellationToken);
+                // request ниже используется только для логов — в нём нет заголовка с токеном.
+                httpResponseMessage = await _katmAuthService.SendPostAsync(httpClient, jsonData, cancellationToken);
                 responseBody = httpResponseMessage.Content is null
                     ? string.Empty
                     : await httpResponseMessage.Content.ReadAsStringAsync(cancellationToken);
@@ -76,11 +88,31 @@ namespace Infrastructure.Services.HttpClients
                 var (appEx, customerIdEx) = await FetchAppAndCustomerId(KeyLoanHistoryKb, cancellationToken);
                 await _telegramNotificationService.NotifyErrorAsync(
                     "CI-017 request exception",
-                    $"Key_RequestHistory: {KeyLoanHistoryKb}\nUrl: {url}\nRequestBody: {redactedJsonData}\nException: {ex.Message}",
+                    TelegramErrorFormatter.Format(
+                        ex,
+                        context: "CI-017 POST к API КАТМ",
+                        loanKey: KeyLoanHistoryKb,
+                        url: url,
+                        request: redactedJsonData),
                     appEx, customerIdEx, cancellationToken);
                 var (codeEx, messageEx) = await _requestManagerRepository.InsertLog(KeyLoanHistoryKb, url, jsonData, request.Method.Method, 0, ex.Message, dateRequest, dateResponseEx, isxml, cancellationToken);
                 if (string.IsNullOrWhiteSpace(codeEx) || codeEx == "1")
                     _logWriter.EmergencyLog("EmergencyLog.txt", "Key_RequestHistory:" + KeyLoanHistoryKb + "\n\nException:" + ex.Message + "\n\n" + messageEx);
+                if (!cancellationToken.IsCancellationRequested)
+                {
+                    try
+                    {
+                        var comment = $"Не удалось отправить запрос CI-017 для отчёта {requestSubtype}. Подробности записаны в журнале сервиса.";
+                        if (isxml == IsXml.Xml)
+                            await _repository.KatmHelperXml(KeyLoanHistoryKb, comment, IHelperRepository.TypeOperation.Comment, cancellationToken, requestSubtype);
+                        else
+                            await _repository.KatmHelper(KeyLoanHistoryKb, comment, IHelperRepository.TypeOperation.Comment, cancellationToken, requestSubtype);
+                    }
+                    catch (Exception commentException)
+                    {
+                        _logWriter.Log("RequestManager.txt", $"Failed to write Loan_History_KB comment for {KeyLoanHistoryKb}: {commentException.Message}");
+                    }
+                }
                 return result;
             }
             DateTime dateResponse = DateTime.Now;
@@ -102,10 +134,22 @@ namespace Infrastructure.Services.HttpClients
                 var (app1, customerId1) = await FetchAppAndCustomerId(KeyLoanHistoryKb, cancellationToken);
                 await _telegramNotificationService.NotifyErrorAsync(
                     "CI-017 request failed",
-                    $"Key_RequestHistory: {KeyLoanHistoryKb}\nStatusCode: {(int)httpResponseMessage.StatusCode} ({httpResponseMessage.StatusCode})\nUrl: {url}\nRequestBody: {redactedJsonData}\nResponseBody: {responseBody}",
+                    TelegramErrorFormatter.Format(
+                        category: "HTTP ошибка КАТМ",
+                        reason: $"API вернул статус {(int)httpResponseMessage.StatusCode} ({httpResponseMessage.StatusCode}).",
+                        action: "Проверьте доступность API, тело запроса и ответ КАТМ.",
+                        context: "CI-017 POST",
+                        loanKey: KeyLoanHistoryKb,
+                        url: url,
+                        statusCode: $"{(int)httpResponseMessage.StatusCode} ({httpResponseMessage.StatusCode})",
+                        request: redactedJsonData,
+                        response: responseBody),
                     app1, customerId1, cancellationToken);
-                await _repository.KatmHelper(KeyLoanHistoryKb, string.Format("Key_LoanHistoryKb:{0} External service API send {1} status code!", KeyLoanHistoryKb, httpResponseMessage.StatusCode), IHelperRepository.TypeOperation.Error, cancellationToken);
-                await _repository.KatmHelperXml(KeyLoanHistoryKb, string.Format("Key_LoanHistoryKb:{0} External service API send {1} status code!", KeyLoanHistoryKb, httpResponseMessage.StatusCode), IHelperRepository.TypeOperation.Error, cancellationToken);
+                var error = $"КАТМ вернул HTTP-статус {(int)httpResponseMessage.StatusCode} при запросе CI-017 для отчёта {requestSubtype}. Подробности записаны в журнале сервиса.";
+                if (isxml == IsXml.Xml)
+                    await _repository.KatmHelperXml(KeyLoanHistoryKb, error, IHelperRepository.TypeOperation.Error, cancellationToken, requestSubtype);
+                else
+                    await _repository.KatmHelper(KeyLoanHistoryKb, error, IHelperRepository.TypeOperation.Error, cancellationToken, requestSubtype);
                 return result;
             }
             if (httpResponseMessage.Content == null)
@@ -114,10 +158,20 @@ namespace Infrastructure.Services.HttpClients
                 var (app2, customerId2) = await FetchAppAndCustomerId(KeyLoanHistoryKb, cancellationToken);
                 await _telegramNotificationService.NotifyErrorAsync(
                     "CI-017 empty response content",
-                    $"Key_RequestHistory: {KeyLoanHistoryKb}\nUrl: {url}\nRequestBody: {redactedJsonData}",
+                    TelegramErrorFormatter.Format(
+                        category: "Пустой ответ API",
+                        reason: "HTTP-ответ без Content (null).",
+                        action: "Проверьте доступность API КАТМ и сетевой путь.",
+                        context: "CI-017 POST",
+                        loanKey: KeyLoanHistoryKb,
+                        url: url,
+                        request: redactedJsonData),
                     app2, customerId2, cancellationToken);
-                await _repository.KatmHelper(KeyLoanHistoryKb, string.Format("Key_LoanHistoryKb:{0} Content object received from API is null!", KeyLoanHistoryKb), IHelperRepository.TypeOperation.Error, cancellationToken);
-                await _repository.KatmHelperXml(KeyLoanHistoryKb, string.Format("Key_LoanHistoryKb:{0} Content object received from API is null!", KeyLoanHistoryKb), IHelperRepository.TypeOperation.Error, cancellationToken);
+                var error = $"КАТМ вернул пустой ответ на запрос CI-017 для отчёта {requestSubtype}.";
+                if (isxml == IsXml.Xml)
+                    await _repository.KatmHelperXml(KeyLoanHistoryKb, error, IHelperRepository.TypeOperation.Error, cancellationToken, requestSubtype);
+                else
+                    await _repository.KatmHelper(KeyLoanHistoryKb, error, IHelperRepository.TypeOperation.Error, cancellationToken, requestSubtype);
                 return result;
             }
             _logger.LogInformation(string.Format("POST Response value: {0}", httpResponseMessage));
@@ -155,11 +209,9 @@ namespace Infrastructure.Services.HttpClients
             _logger.LogInformation("LoanKey:{LoanKey}. Sending POST request started. Url:{Url}", LoanKey, url);
             _logger.LogInformation("LoanKey:{LoanKey}. RequestBody: {RequestBody}", LoanKey, redactedJsonData);
 
-            using var httpClient = new HttpClient();
-            httpClient.BaseAddress = new Uri(url);
-            httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            using var httpClient = CreateHttpClient(url);
 
-            var request = new HttpRequestMessage()
+            HttpRequestMessage request = new()
             {
                 Content = new StringContent(jsonData, Encoding.UTF8, "application/json"),
                 Method = HttpMethod.Post
@@ -181,7 +233,7 @@ namespace Infrastructure.Services.HttpClients
                 {
                     try
                     {
-                        httpResponseMessage = await httpClient.SendAsync(request, cancellationToken);
+                        httpResponseMessage = await _katmAuthService.SendPostAsync(httpClient, jsonData, cancellationToken);
                         DateTime dateResponse = DateTime.Now;
                         responseBody = httpResponseMessage.Content is null
                             ? string.Empty
@@ -229,7 +281,10 @@ namespace Infrastructure.Services.HttpClients
                         result = responseBody;
                         return result;
                     }
-                    catch (HttpRequestException ex) when (attempt < MaxRetries)
+                    catch (Exception ex) when (
+                        attempt < MaxRetries &&
+                        !cancellationToken.IsCancellationRequested &&
+                        (ex is HttpRequestException || ex is TaskCanceledException))
                     {
                         lastException = ex;
                         var delay = InitialRetryDelayMs * (int)Math.Pow(2, attempt - 1);
@@ -248,7 +303,12 @@ namespace Infrastructure.Services.HttpClients
                 var (app3, customerId3) = await _creditBureauReportRepository.GetLoanAppAndCustomerIdAsync(LoanKey.ToString(), cancellationToken);
                 await _telegramNotificationService.NotifyErrorAsync(
                     "RequestManagerService POST request failed",
-                    $"LoanKey: {LoanKey}\nUrl: {url}\nMessage: {ex.Message}\nException: {ex}",
+                    TelegramErrorFormatter.Format(
+                        ex,
+                        context: "RequestManagerService.SendPostRequest",
+                        loanKey: LoanKey.ToString(),
+                        url: url,
+                        request: redactedJsonData),
                     app3, customerId3, cancellationToken);
 
                 var (code, message) = await _requestManagerRepository.InsertRequestLog(
@@ -270,6 +330,10 @@ namespace Infrastructure.Services.HttpClients
                 }
 
                 return string.Empty;
+            }
+            finally
+            {
+                request.Dispose();
             }
         }
 

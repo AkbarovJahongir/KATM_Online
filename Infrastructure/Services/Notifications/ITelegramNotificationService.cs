@@ -9,4 +9,8 @@ public interface ITelegramNotificationService
     Task NotifyErrorAsync(string source, string message, CancellationToken cancellationToken = default);
 
     Task NotifyErrorAsync(string source, string message, string? app, string? customerId, CancellationToken cancellationToken = default);
+
+    Task NotifyErrorAsync(string source, Exception exception, CancellationToken cancellationToken = default);
+
+    Task NotifyErrorAsync(string source, Exception exception, string? context, CancellationToken cancellationToken = default);
 }

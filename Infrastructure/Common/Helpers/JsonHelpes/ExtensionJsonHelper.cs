@@ -41,5 +41,27 @@ namespace Infrastructure.Common.Helpers.JsonHelpes
                 return json;
             }
         }
+
+        /// <summary>
+        /// Удаляет верхнеуровневый блок "security" из тела запроса (ТЗ 10.0: логин/пароль
+        /// больше не передаются в теле, авторизация — заголовком Bearer).
+        /// </summary>
+        public static string RemoveSecurity(this string json)
+        {
+            // DateParseHandling.None / FloatParseHandling.Decimal: тело уходит в КАТМ,
+            // даты и суммы должны остаться в исходном текстовом виде.
+            var obj = JsonConvert.DeserializeObject<JObject>(json, new JsonSerializerSettings
+            {
+                DateParseHandling = DateParseHandling.None,
+                FloatParseHandling = FloatParseHandling.Decimal
+            });
+
+            if (obj is null || !obj.Remove("security"))
+            {
+                return json;
+            }
+
+            return obj.ToString(Formatting.None);
+        }
     }
 }

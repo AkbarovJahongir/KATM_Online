@@ -5,11 +5,11 @@ namespace Application.Repositories.CreditBureauReportRepositories;
 /// </summary>
 public interface ICi017StateStore
 {
-    Task<Ci017State> GetCi017StateAsync(int loanKey, CancellationToken cancellationToken);
+    Task<Ci017State> GetCi017StateAsync(int loanKey, string? requestSubtype, CancellationToken cancellationToken);
 
-    Task UpdateRequestHistoryStatusAsync(int loanKey, string status, CancellationToken cancellationToken);
+    Task UpdateRequestHistoryStatusAsync(int loanKey, string status, CancellationToken cancellationToken, string? requestSubtype = null, string? comment = null);
 
-    Task IncrementCi017AttemptAsync(int loanKey, string? currentStatus, CancellationToken cancellationToken);
+    Task IncrementCi017AttemptAsync(int loanKey, string? requestSubtype, string? currentStatus, CancellationToken cancellationToken);
 
     Task InsertCi017RequestLogAsync(
         int loanKey,

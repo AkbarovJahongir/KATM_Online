@@ -894,26 +894,36 @@ public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : I
             PDate = GetString(reader, "pDate"),              // [ДатаОтправки]
         };
     }
-    public async Task IncrementCi017AttemptAsync(int loanKey, string? currentStatus, CancellationToken cancellationToken)
+    public async Task IncrementCi017AttemptAsync(int loanKey, string? requestSubtype, string? currentStatus, CancellationToken cancellationToken)
     {
+        if (string.IsNullOrWhiteSpace(requestSubtype)) throw new ArgumentException("CI-017 report subtype is required.", nameof(requestSubtype));
         using var connection = new SqlConnection(_databaseSettings.CIBConnection);
-        using var command = new SqlCommand(
-            "UPDATE [dbo].[Katm_Methods_Request] SET ci017Attempt = ISNULL(ci017Attempt, 0) + 1, LastStatus = @currentStatus, LastCi017AttemptAt = DATEADD(HOUR, 5, SYSUTCDATETIME()) WHERE [loanKey] = @loanKey",
-            connection);
-        command.Parameters.AddWithValue("@loanKey", loanKey);
-        command.Parameters.AddWithValue("@currentStatus", (object?)currentStatus ?? DBNull.Value);
         await connection.OpenAsync(cancellationToken);
+        using var transaction = (SqlTransaction)await connection.BeginTransactionAsync(cancellationToken);
+        using var command = new SqlCommand(@"
+            UPDATE dbo.Ci017AttemptByReport WITH (UPDLOCK, SERIALIZABLE)
+            SET AttemptCount = AttemptCount + 1, LastStatus = @currentStatus,
+                LastAttemptAt = DATEADD(HOUR, 5, SYSUTCDATETIME())
+            WHERE LoanKey = @loanKey AND RequestSubtype = @requestSubtype;
+            IF @@ROWCOUNT = 0
+                INSERT dbo.Ci017AttemptByReport (LoanKey, RequestSubtype, AttemptCount, LastStatus, LastAttemptAt)
+                VALUES (@loanKey, @requestSubtype, 1, @currentStatus, DATEADD(HOUR, 5, SYSUTCDATETIME()));", connection, transaction);
+        command.Parameters.AddWithValue("@loanKey", loanKey);
+        command.Parameters.AddWithValue("@requestSubtype", requestSubtype);
+        command.Parameters.AddWithValue("@currentStatus", (object?)currentStatus ?? DBNull.Value);
         await command.ExecuteNonQueryAsync(cancellationToken);
-        await connection.CloseAsync();
+        await transaction.CommitAsync(cancellationToken);
     }
 
-    public async Task<Ci017State> GetCi017StateAsync(int loanKey, CancellationToken cancellationToken)
+    public async Task<Ci017State> GetCi017StateAsync(int loanKey, string? requestSubtype, CancellationToken cancellationToken)
     {
+        if (string.IsNullOrWhiteSpace(requestSubtype)) throw new ArgumentException("CI-017 report subtype is required.", nameof(requestSubtype));
         using var connection = new SqlConnection(_databaseSettings.CIBConnection);
         using var command = new SqlCommand(
-            "SELECT ISNULL(ci017Attempt, 0) AS AttemptCount, LastStatus, LastCi017AttemptAt FROM [dbo].[Katm_Methods_Request] WHERE [loanKey] = @loanKey",
+            "SELECT AttemptCount, LastStatus, LastAttemptAt FROM dbo.Ci017AttemptByReport WHERE LoanKey = @loanKey AND RequestSubtype = @requestSubtype",
             connection);
         command.Parameters.AddWithValue("@loanKey", loanKey);
+        command.Parameters.AddWithValue("@requestSubtype", requestSubtype);
         await connection.OpenAsync(cancellationToken);
         using var reader = await command.ExecuteReaderAsync(cancellationToken);
 
@@ -924,37 +934,57 @@ public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : I
 
         var attemptCount = reader["AttemptCount"] is DBNull ? 0 : Convert.ToInt32(reader["AttemptCount"]);
         var lastStatus = reader["LastStatus"] is DBNull ? null : reader["LastStatus"].ToString();
-        var lastAttemptAt = reader["LastCi017AttemptAt"] is DBNull ? (DateTime?)null : Convert.ToDateTime(reader["LastCi017AttemptAt"]);
+        var lastAttemptAt = reader["LastAttemptAt"] is DBNull ? (DateTime?)null : Convert.ToDateTime(reader["LastAttemptAt"]);
 
         return new Ci017State(attemptCount, lastStatus, lastAttemptAt);
     }
 
-    public async Task UpdateRequestHistoryStatusAsync(int loanKey, string status, CancellationToken cancellationToken)
+    public async Task UpdateRequestHistoryStatusAsync(int keyLoanHistoryKb, string status, CancellationToken cancellationToken, string? requestSubtype = null, string? comment = null)
     {
+        // Each report subtype has its own Request_History status. Do not close sibling reports.
+        string? finalizedStatus;
         using (var connection = new SqlConnection(_databaseSettings.CIBConnection))
         using (var command = new SqlCommand(
-            "UPDATE [dbo].[Request_History] SET [status] = @status WHERE [Key_ABS_Loan] = @loanKey",
+            "UPDATE [dbo].[Request_History] SET [status] = @status, [Comment] = COALESCE(@comment, [Comment]) WHERE [Key_Abs_Loan] = @keyLoanHistoryKb AND (@requestSubtype IS NULL OR [Request_Subtype] = @requestSubtype)",
             connection))
         {
-            command.Parameters.AddWithValue("@loanKey", loanKey);
+            command.Parameters.AddWithValue("@keyLoanHistoryKb", keyLoanHistoryKb);
             command.Parameters.AddWithValue("@status", status);
+            command.Parameters.AddWithValue("@requestSubtype", (object?)requestSubtype ?? DBNull.Value);
+            command.Parameters.AddWithValue("@comment", (object?)comment ?? DBNull.Value);
             await connection.OpenAsync(cancellationToken);
             await command.ExecuteNonQueryAsync(cancellationToken);
+
+            // Request_History is in CIB; its parent Loan_History_KB belongs to DBConnection
+            // (for example Imkon_Finance), so never hard-code the old Ehtirom database here.
+            using var statusCommand = new SqlCommand(
+                @"SELECT CASE
+                    WHEN EXISTS (SELECT 1 FROM [dbo].[Request_History]
+                                 WHERE [Key_Abs_Loan] = @keyLoanHistoryKb AND [Status] NOT IN ('04', '09')) THEN NULL
+                    WHEN EXISTS (SELECT 1 FROM [dbo].[Request_History]
+                                 WHERE [Key_Abs_Loan] = @keyLoanHistoryKb AND [Status] = '09') THEN '09'
+                    ELSE '03'
+                  END;",
+                connection);
+            statusCommand.Parameters.AddWithValue("@keyLoanHistoryKb", keyLoanHistoryKb);
+            finalizedStatus = await statusCommand.ExecuteScalarAsync(cancellationToken) as string;
             await connection.CloseAsync();
         }
 
-        // Loan_History_KB (Ehtirom) is the source table GetLoanApplications() reads from -
-        // without this, a loan stuck at "09" in Request_History keeps being re-selected as if still "00".
-        using (var connection = new SqlConnection(_databaseSettings.DBConnection))
-        using (var command = new SqlCommand(
-            "UPDATE [dbo].[Loan_History_KB] SET [status] = @status WHERE [key] = @loanKey",
-            connection))
+        using (var parentConnection = new SqlConnection(_databaseSettings.DBConnection))
+        using (var parentCommand = new SqlCommand(
+            @"UPDATE [dbo].[Loan_History_KB]
+              SET [Comment] = COALESCE(@comment, [Comment]),
+                  [Status] = COALESCE(@finalizedStatus, [Status]),
+                  [Get_Date] = CASE WHEN @finalizedStatus IS NULL THEN [Get_Date] ELSE GETDATE() END
+              WHERE [key] = @keyLoanHistoryKb;",
+            parentConnection))
         {
-            command.Parameters.AddWithValue("@loanKey", loanKey);
-            command.Parameters.AddWithValue("@status", status);
-            await connection.OpenAsync(cancellationToken);
-            await command.ExecuteNonQueryAsync(cancellationToken);
-            await connection.CloseAsync();
+            parentCommand.Parameters.AddWithValue("@keyLoanHistoryKb", keyLoanHistoryKb);
+            parentCommand.Parameters.AddWithValue("@comment", (object?)comment ?? DBNull.Value);
+            parentCommand.Parameters.AddWithValue("@finalizedStatus", (object?)finalizedStatus ?? DBNull.Value);
+            await parentConnection.OpenAsync(cancellationToken);
+            await parentCommand.ExecuteNonQueryAsync(cancellationToken);
         }
     }
 
@@ -1023,7 +1053,7 @@ public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : I
         await connection.OpenAsync(cancellationToken);
         var result = await command.ExecuteScalarAsync(cancellationToken);
         await connection.CloseAsync();
-        return result == DBNull.Value ? null : Convert.ToByte(result);
+        return result is null or DBNull ? null : Convert.ToByte(result);
     }
 
     public async Task<byte?> GetCreditBureau002StatusAsync(int loanKey, CancellationToken cancellationToken)
@@ -1034,22 +1064,43 @@ public class CreditBureauReportRepository(DatabaseSettings databaseSettings) : I
         await connection.OpenAsync(cancellationToken);
         var result = await command.ExecuteScalarAsync(cancellationToken);
         await connection.CloseAsync();
-        return result == DBNull.Value ? null : Convert.ToByte(result);
+        return result is null or DBNull ? null : Convert.ToByte(result);
     }
 
-    public async Task<(string? App, string? CustomerId)> GetLoanAppAndCustomerIdAsync(string loanKey, CancellationToken cancellationToken)
+    public async Task<int?> GetLoanKeyByHistoryKbAsync(int keyLoanHistoryKb, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(loanKey))
+        using var connection = new SqlConnection(_databaseSettings.DBConnection);
+        using var command = new SqlCommand(
+            @"SELECT TOP 1 l.[key]
+              FROM dbo.Loan_History_KB lh WITH (NOLOCK)
+              INNER JOIN dbo.Loan l WITH (NOLOCK) ON l.App = lh.App
+              WHERE lh.[key] = @keyLoanHistoryKb",
+            connection);
+        command.Parameters.AddWithValue("@keyLoanHistoryKb", keyLoanHistoryKb);
+
+        await connection.OpenAsync(cancellationToken);
+        var result = await command.ExecuteScalarAsync(cancellationToken);
+        await connection.CloseAsync();
+
+        return result is null or DBNull ? null : Convert.ToInt32(result);
+    }
+
+    public async Task<(string? App, string? CustomerId)> GetLoanAppAndCustomerIdAsync(string keyLoanHistoryKb, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(keyLoanHistoryKb))
         {
             return (null, null);
         }
 
         using var connection = new SqlConnection(_databaseSettings.DBConnection);
         using var command = new SqlCommand(
-            "SELECT TOP 1 App, Customer_ID FROM dbo.Loan WITH(NOLOCK) WHERE [key] = @LoanKey",
+            @"SELECT TOP 1 l.App, l.Customer_ID
+              FROM dbo.Loan_History_KB lh WITH (NOLOCK)
+              INNER JOIN dbo.Loan l WITH (NOLOCK) ON l.App = lh.App
+              WHERE lh.[key] = @keyLoanHistoryKb",
             connection);
 
-        command.Parameters.Add("@LoanKey", SqlDbType.NVarChar, 64).Value = loanKey.Trim();
+        command.Parameters.Add("@keyLoanHistoryKb", SqlDbType.NVarChar, 64).Value = keyLoanHistoryKb.Trim();
 
         await connection.OpenAsync(cancellationToken);
         using var reader = await command.ExecuteReaderAsync(cancellationToken);

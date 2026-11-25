@@ -1,5 +1,5 @@
+using Infrastructure.Common.Helpers;
 using Infrastructure.Services.CreditBureauReportServices.Handlers;
-using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 
 namespace Infrastructure.Services.CreditBureauReportServices;
@@ -10,14 +10,16 @@ namespace Infrastructure.Services.CreditBureauReportServices;
 /// </summary>
 public class CreditBureauReportService : ICreditBureauReportService
 {
+    private static readonly TimeSpan PeriodLockTimeout = TimeSpan.FromSeconds(30);
+
     private readonly CreditBureauProcessingManager _processingManager;
     private readonly IEnumerable<ICiHandler> _handlers;
     private readonly ILogger<CreditBureauReportService> _logger;
-    private readonly SemaphoreSlim _processingLock = new SemaphoreSlim(1, 1);
+    private readonly SemaphoreSlim _processingLock = new(1, 1);
 
-    private readonly SemaphoreSlim _ci015Lock = new SemaphoreSlim(1, 1);
-    private readonly SemaphoreSlim _ci016Lock = new SemaphoreSlim(1, 1);
-    private readonly SemaphoreSlim _ci018Lock = new SemaphoreSlim(1, 1);
+    private readonly SemaphoreSlim _ci015Lock = new(1, 1);
+    private readonly SemaphoreSlim _ci016Lock = new(1, 1);
+    private readonly SemaphoreSlim _ci018Lock = new(1, 1);
 
     public CreditBureauReportService(
         CreditBureauProcessingManager processingManager,
@@ -43,7 +45,7 @@ public class CreditBureauReportService : ICreditBureauReportService
 
         try
         {
-            await ProcessWithRetryAsync(cancellationToken);
+            await _processingManager.ProcessAllAsync(RunHandlerWithPeriodLockAsync, cancellationToken);
         }
         finally
         {
@@ -51,29 +53,44 @@ public class CreditBureauReportService : ICreditBureauReportService
         }
     }
 
-    private async Task ProcessWithRetryAsync(CancellationToken cancellationToken, int attemptNumber = 1, int maxAttempts = 3)
+    private async Task<CiProcessingResult?> RunHandlerWithPeriodLockAsync(
+        ICiHandler handler,
+        CancellationToken cancellationToken)
     {
+        var gate = GetPeriodGate(handler.CiCode);
+        if (gate is null)
+        {
+            return await ExecuteHandlerWithDeadlockRetryAsync(handler, cancellationToken);
+        }
+
+        if (!await gate.WaitAsync(PeriodLockTimeout, cancellationToken))
+        {
+            _logger.LogWarning(
+                "Skipping CI-{CiCode} worker run: period lock busy for more than {TimeoutSeconds}s",
+                handler.CiCode, PeriodLockTimeout.TotalSeconds);
+            return null;
+        }
+
         try
         {
-            await _processingManager.ProcessAllAsync(cancellationToken);
+            return await ExecuteHandlerWithDeadlockRetryAsync(handler, cancellationToken);
         }
-        catch (SqlException ex) when (ex.Number == 1205 && attemptNumber < maxAttempts)
+        finally
         {
-            var delayMs = (int)Math.Pow(2, attemptNumber) * 1000;
-            _logger.LogWarning(ex, "Deadlock detected in CreditBureauReportProcessing (attempt {AttemptNumber}/{MaxAttempts}), retrying after {DelayMs}ms",
-                attemptNumber, maxAttempts, delayMs);
-
-            await Task.Delay(delayMs, cancellationToken);
-            await ProcessWithRetryAsync(cancellationToken, attemptNumber + 1, maxAttempts);
+            gate.Release();
         }
     }
 
-    /// <summary>
-    /// Обработка конкретного CI-запроса
-    /// </summary>
-    /// <param name="ciCode">Код CI (например, 1 для CI-001)</param>
-    /// <param name="cancellationToken">Токен отмены</param>
-    /// <returns>Результат обработки</returns>
+    private Task<CiProcessingResult> ExecuteHandlerWithDeadlockRetryAsync(
+        ICiHandler handler,
+        CancellationToken cancellationToken) =>
+        SqlConnectionHelper.ExecuteWithRetryAsync(
+            handler.ProcessAsync,
+            _logger,
+            $"CI-{handler.CiCode:D3}",
+            maxAttempts: 3,
+            cancellationToken: cancellationToken);
+
     public async Task<CiProcessingResult> ProcessCiCodeAsync(int ciCode, CancellationToken cancellationToken = default)
     {
         var handler = _handlers.FirstOrDefault(h => h.CiCode == ciCode);
@@ -85,39 +102,26 @@ public class CreditBureauReportService : ICreditBureauReportService
         }
 
         _logger.LogInformation("Processing CI-{CiCode} individually", ciCode);
-        return await handler.ProcessAsync(cancellationToken);
+        var result = await RunHandlerWithPeriodLockAsync(handler, cancellationToken);
+        return result ?? new CiProcessingResult();
     }
 
-    /// <summary>
-    /// Отправка отчета CI-015 (Сведения об остатках на счетах) за указанный период
-    /// Синхронизирована чтобы избежать deadlock-а с worker-ом
-    /// </summary>
-    /// <param name="startDate">Дата начала периода</param>
-    /// <param name="endDate">Дата окончания периода</param>
-    /// <param name="loanKey">Фильтр по LoanKey (необязательно)</param>
-    /// <param name="cancellationToken">Токен отмены</param>
-    public async Task<CiProcessingResult> SendCi015ByPeriodAsync(DateTime startDate, DateTime endDate, int? loanKey, CancellationToken cancellationToken = default)
-    {
-        return await SendPeriodAsync(15, _ci015Lock, startDate, endDate, loanKey, cancellationToken);
-    }
+    public Task<CiProcessingResult> SendCi015ByPeriodAsync(DateTime startDate, DateTime endDate, int? loanKey, CancellationToken cancellationToken = default)
+        => SendPeriodAsync(15, _ci015Lock, startDate, endDate, loanKey, cancellationToken);
 
-    /// <summary>
-    /// Отправка отчета CI-016 (Сведения о платежных документах) за указанный период
-    /// Синхронизирована чтобы избежать deadlock-а с worker-ом
-    /// </summary>
-    public async Task<CiProcessingResult> SendCi016ByPeriodAsync(DateTime startDate, DateTime endDate, int? loanKey, CancellationToken cancellationToken = default)
-    {
-        return await SendPeriodAsync(16, _ci016Lock, startDate, endDate, loanKey, cancellationToken);
-    }
+    public Task<CiProcessingResult> SendCi016ByPeriodAsync(DateTime startDate, DateTime endDate, int? loanKey, CancellationToken cancellationToken = default)
+        => SendPeriodAsync(16, _ci016Lock, startDate, endDate, loanKey, cancellationToken);
 
-    /// <summary>
-    /// Отправка отчета CI-018 (Сведения о статусе счетов) за указанный период
-    /// Синхронизирована чтобы избежать deadlock-а с worker-ом
-    /// </summary>
-    public async Task<CiProcessingResult> SendCi018ByPeriodAsync(DateTime startDate, DateTime endDate, int? loanKey, CancellationToken cancellationToken = default)
+    public Task<CiProcessingResult> SendCi018ByPeriodAsync(DateTime startDate, DateTime endDate, int? loanKey, CancellationToken cancellationToken = default)
+        => SendPeriodAsync(18, _ci018Lock, startDate, endDate, loanKey, cancellationToken);
+
+    private SemaphoreSlim? GetPeriodGate(int ciCode) => ciCode switch
     {
-        return await SendPeriodAsync(18, _ci018Lock, startDate, endDate, loanKey, cancellationToken);
-    }
+        15 => _ci015Lock,
+        16 => _ci016Lock,
+        18 => _ci018Lock,
+        _ => null
+    };
 
     private async Task<CiProcessingResult> SendPeriodAsync(
         int ciCode,
@@ -134,13 +138,27 @@ public class CreditBureauReportService : ICreditBureauReportService
             return new CiProcessingResult();
         }
 
-        await gate.WaitAsync(cancellationToken);
+        if (!await gate.WaitAsync(PeriodLockTimeout, cancellationToken))
+        {
+            _logger.LogWarning(
+                "CI-{CiCode} period send timed out waiting for lock ({TimeoutSeconds}s)",
+                ciCode, PeriodLockTimeout.TotalSeconds);
+            throw new TimeoutException(
+                $"CI-{ciCode:D3} is already running (worker or another period request). Try again after {PeriodLockTimeout.TotalSeconds:0}s.");
+        }
+
         try
         {
             _logger.LogInformation(
                 "Sending CI-{CiCode} for period {StartDate} - {EndDate}, LoanKey: {LoanKey}",
                 ciCode, startDate.ToString("yyyy-MM-dd"), endDate.ToString("yyyy-MM-dd"), loanKey);
-            return await handler.SendByPeriodAsync(startDate, endDate, loanKey, cancellationToken);
+
+            return await SqlConnectionHelper.ExecuteWithRetryAsync(
+                ct => handler.SendByPeriodAsync(startDate, endDate, loanKey, ct),
+                _logger,
+                $"CI-{ciCode:D3} period",
+                maxAttempts: 3,
+                cancellationToken: cancellationToken);
         }
         finally
         {

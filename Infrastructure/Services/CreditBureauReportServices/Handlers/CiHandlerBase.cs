@@ -87,8 +87,10 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
                 await NotifyErrorAsync(
                     $"CI-{CiCode:D3} null request",
                     item.LoanKey,
-                    "Request data is null",
-                    cancellationToken);
+                    category: "Пустой запрос",
+                    reason: "В очереди CI запись есть, но тело запроса null.",
+                    action: "Проверьте функцию очереди KATM_Report и данные заявки в БД.",
+                    cancellationToken: cancellationToken);
                 await CreditBureauReportRepository.UpsertCiStatusAsync(
                     item.LoanKey, CiCode, 2, nullMessage, null, cancellationToken);
                 continue;
@@ -117,8 +119,10 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
                     await NotifyErrorAsync(
                         $"CI-{CiCode:D3} empty response",
                         item.LoanKey,
-                        "API returned empty response",
-                        cancellationToken);
+                        category: "Пустой ответ API",
+                        reason: "КАТМ вернул пустой HTTP-ответ.",
+                        action: "Проверьте доступность API КАТМ и логи RequestManager.",
+                        cancellationToken: cancellationToken);
                     await CreditBureauReportRepository.UpsertCiStatusAsync(
                         item.LoanKey, CiCode, 2, emptyMessage, null, cancellationToken);
                     continue;
@@ -149,10 +153,11 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
                 result.AddDetail(item.LoanKey, false, errorMessage);
                 Logger.LogError(ex, "CI-{CiCode} error processing LoanKey={LoanKey}. Error={Error}", CiCode,
                     item.LoanKey, ex.Message);
-                await NotifyErrorAsync(
+                await NotifyExceptionAsync(
                     $"CI-{CiCode:D3} processing exception",
                     item.LoanKey,
-                    $"Message: {ex.Message}\nStackTrace: {ex.StackTrace}",
+                    ex,
+                    context: $"Обработка CI-{CiCode:D3}",
                     cancellationToken);
                 await CreditBureauReportRepository.UpsertCiStatusAsync(
                     item.LoanKey, CiCode, 2, errorMessage, null, cancellationToken);
@@ -186,8 +191,12 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
             await NotifyErrorAsync(
                 $"CI-{CiCode:D3} invalid response format",
                 loanKey,
-                GetResponsePreview(response, 1500),
-                cancellationToken);
+                category: "Неверный формат ответа",
+                reason: "Ответ КАТМ не является JSON.",
+                action: "Проверьте endpoint, Content-Type и тело ответа API.",
+                details: null,
+                responsePreview: GetResponsePreview(response, 1500),
+                cancellationToken: cancellationToken);
             return (false, $"Invalid response from API: {GetResponsePreview(response, 200)}", null);
         }
 
@@ -200,8 +209,12 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
             await NotifyErrorAsync(
                 $"CI-{CiCode:D3} invalid JSON structure",
                 loanKey,
-                GetResponsePreview(response, 1500),
-                cancellationToken);
+                category: "Неверная структура JSON",
+                reason: "Не удалось разобрать ответ КАТМ в ожидаемую модель.",
+                action: "Сверьте схему ответа с контрактом CI и логи Full.",
+                details: null,
+                responsePreview: GetResponsePreview(response, 1500),
+                cancellationToken: cancellationToken);
             return (false, $"Invalid JSON structure from API: {GetResponsePreview(response, 200)}", null);
         }
 
@@ -223,8 +236,12 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
             await NotifyErrorAsync(
                 $"CI-{CiCode:D3} API error",
                 loanKey,
-                $"Message: {message}\nResponse: {GetResponsePreview(response, 1500)}",
-                cancellationToken);
+                category: "Ошибка API КАТМ",
+                reason: message,
+                action: "Исправьте данные заявки или уточните код ошибки у КАТМ.",
+                details: null,
+                responsePreview: GetResponsePreview(response, 1500),
+                cancellationToken: cancellationToken);
         }
 
         return (isSuccess, message, token);
@@ -278,7 +295,23 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
     protected void LogFullResponse(int loanKey, string response) =>
         LogWriter.Log($"CI{CiCode:D3}Full.txt", $"Type: CI-{CiCode:D3} Response\nLoanKey: {loanKey}\n{response}");
 
-    protected async Task NotifyErrorAsync(string source, int loanKey, string details,
+    protected Task NotifyErrorAsync(
+        string source,
+        int loanKey,
+        string category,
+        string reason,
+        string action,
+        CancellationToken cancellationToken = default) =>
+        NotifyErrorAsync(source, loanKey, category, reason, action, details: null, responsePreview: null, cancellationToken);
+
+    protected async Task NotifyErrorAsync(
+        string source,
+        int loanKey,
+        string category,
+        string reason,
+        string action,
+        string? details,
+        string? responsePreview,
         CancellationToken cancellationToken = default)
     {
         if (TelegramNotificationService is null)
@@ -287,15 +320,58 @@ public abstract class CiHandlerBase<TRequest> : ICiHandler
             return;
         }
 
-        var requestInfo = _currentRequestJson is not null
-            ? $"\nRequest: {GetResponsePreview(_currentRequestJson.RedactSecurity(), 1500)}"
-            : string.Empty;
+        var requestPreview = _currentRequestJson is not null
+            ? GetResponsePreview(_currentRequestJson.RedactSecurity(), 1500)
+            : null;
+
+        var message = TelegramErrorFormatter.Format(
+            category: category,
+            reason: reason,
+            action: action,
+            context: $"CI-{CiCode:D3}",
+            loanKey: loanKey.ToString(),
+            details: details,
+            request: requestPreview,
+            response: responsePreview);
 
         var (app, customerId) = await CreditBureauReportRepository.GetLoanAppAndCustomerIdAsync(loanKey.ToString(), cancellationToken);
 
         await TelegramNotificationService.NotifyErrorAsync(
             source,
-            $"LoanKey: {loanKey}\nDetails: {details}{requestInfo}",
+            message,
+            app,
+            customerId,
+            cancellationToken);
+    }
+
+    protected async Task NotifyExceptionAsync(
+        string source,
+        int loanKey,
+        Exception exception,
+        string? context = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (TelegramNotificationService is null)
+        {
+            Logger.LogWarning("CI-{CiCode} TelegramNotificationService is null, skipping notification", CiCode);
+            return;
+        }
+
+        var requestPreview = _currentRequestJson is not null
+            ? GetResponsePreview(_currentRequestJson.RedactSecurity(), 1500)
+            : null;
+
+        var message = TelegramErrorFormatter.Format(
+            exception,
+            context: context ?? $"CI-{CiCode:D3}",
+            loanKey: loanKey.ToString(),
+            request: requestPreview);
+
+        var (app, customerId) = await CreditBureauReportRepository.GetLoanAppAndCustomerIdAsync(loanKey.ToString(), cancellationToken);
+
+        await TelegramNotificationService.NotifyErrorAsync(
+            source,
+            message,
             app,
             customerId,
             cancellationToken);
