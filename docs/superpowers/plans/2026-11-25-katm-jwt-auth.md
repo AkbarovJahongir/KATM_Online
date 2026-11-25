@@ -138,7 +138,7 @@ git commit -m "feat: add RemoveSecurity JSON helper for KATM JWT auth"
   - `public class KatmAuthService(CreditBureauReportApiOptions options, IHttpClientFactory httpClientFactory, ILogger<KatmAuthService> logger, TimeProvider? timeProvider = null) : IKatmAuthService`
   - `httpClient` уже содержит `BaseAddress` = полный URL метода (так `RequestManagerService.CreateHttpClient` делает сейчас), запрос отправляется без `RequestUri`.
 
-- [ ] **Step 1: Добавить настройки** в `Domain/Common/Settings/CreditBureauReportApiOptions.cs` (после `PPassword`)
+- [x] **Step 1: Добавить настройки** в `Domain/Common/Settings/CreditBureauReportApiOptions.cs` (после `PPassword`)
 
 ```csharp
         /// <summary>ТЗ 10.0: авторизация Bearer JWT вместо security в теле. false — поведение ТЗ 9.16.</summary>
@@ -146,7 +146,7 @@ git commit -m "feat: add RemoveSecurity JSON helper for KATM JWT auth"
         public string AuthLoginUrl { get; set; } = null!;
 ```
 
-- [ ] **Step 2: Написать падающие тесты** — создать `Infrastructure.Tests/Services/HttpClients/KatmAuthServiceTests.cs`
+- [x] **Step 2: Написать падающие тесты** — создать `Infrastructure.Tests/Services/HttpClients/KatmAuthServiceTests.cs`
 
 ```csharp
 using System.Net;
@@ -199,7 +199,7 @@ public class KatmAuthServiceTests
     }
 
     private static string LoginOk(string token) =>
-        $$"""{"error":{"errId":0,"errMsg":null},"success":true,"data":{"accessToken":"{{token}}","refreshToken":"r"}}""";
+        $$$"""{"error":{"errId":0,"errMsg":null},"success":true,"data":{"accessToken":"{{{token}}}","refreshToken":"r"}}""";
 
     private static (KatmAuthService Sut, FakeKatm Katm, HttpClient Api) Create(
         bool useJwt, FakeTime time, Queue<string> logins, params HttpStatusCode[] apiStatuses)
@@ -283,12 +283,12 @@ public class KatmAuthServiceTests
 }
 ```
 
-- [ ] **Step 3: Запустить, убедиться что падают**
+- [x] **Step 3: Запустить, убедиться что падают**
 
 Run: `dotnet test Infrastructure.Tests/Infrastructure.Tests.csproj --filter "FullyQualifiedName~KatmAuthServiceTests"`
 Expected: ошибка компиляции `The type or namespace name 'KatmAuthService' could not be found`.
 
-- [ ] **Step 4: Реализация** — создать `Infrastructure/Services/HttpClients/KatmAuthService.cs`
+- [x] **Step 4: Реализация** — создать `Infrastructure/Services/HttpClients/KatmAuthService.cs`
 
 ```csharp
 using Domain.Common.Settings;
@@ -427,12 +427,12 @@ namespace Infrastructure.Services.HttpClients
 }
 ```
 
-- [ ] **Step 5: Запустить тесты**
+- [x] **Step 5: Запустить тесты**
 
 Run: `dotnet test Infrastructure.Tests/Infrastructure.Tests.csproj --filter "FullyQualifiedName~KatmAuthServiceTests"`
 Expected: PASS, 4 теста.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add Domain/Common/Settings/CreditBureauReportApiOptions.cs Infrastructure/Services/HttpClients/KatmAuthService.cs Infrastructure.Tests/Services/HttpClients/KatmAuthServiceTests.cs
